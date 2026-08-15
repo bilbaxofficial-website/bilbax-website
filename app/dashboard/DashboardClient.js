@@ -79,10 +79,14 @@ export default function DashboardClient({ user, igAccount }) {
                 Pick a post, set a trigger keyword, and write the DM that
                 gets sent automatically when someone comments it.
               </p>
-              <button className="connect-btn" disabled>
+              <a href="/dashboard/automations/new" className="connect-btn">
                 Create automation
-                <span className="coming-soon-pill">Coming next</span>
-              </button>
+              </a>
+              <div style={{ marginTop: 14 }}>
+                <a href="/dashboard/automations" className="view-all-link">
+                  View all automations →
+                </a>
+              </div>
             </div>
           </>
         )}
@@ -240,8 +244,15 @@ export default function DashboardClient({ user, igAccount }) {
           font-weight: 800;
           font-size: 16px;
           cursor: pointer;
+          text-decoration: none;
           box-shadow: 4px 4px 0 #14121f;
           transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .view-all-link {
+          color: #7c3aed;
+          font-weight: 700;
+          font-size: 13px;
+          text-decoration: none;
         }
         .connect-btn:hover:not(:disabled) {
           transform: translate(-2px, -2px);
