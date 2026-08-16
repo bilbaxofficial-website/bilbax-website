@@ -47,17 +47,33 @@ export async function GET(request) {
       return NextResponse.redirect(`${origin}/dashboard?ig_error=1`);
     }
 
-    // Step 2: fetch the connected account's basic info (username).
+    // Step 2: fetch the connected account's basic info.
+    // IMPORTANT: webhooks send entry.id as the Instagram Business Account ID
+    // (the "user_id" field below), NOT the "id" field from /me. These are
+    // two different ID namespaces on Instagram's Graph API and must not be
+    // confused - saving the wrong one means webhook lookups will never match.
     const profileResponse = await fetch(
-      `https://graph.instagram.com/me?fields=id,username&access_token=${tokenData.access_token}`
+      `https://graph.instagram.com/me?fields=id,user_id,username&access_token=${tokenData.access_token}`
     );
     const profileData = await profileResponse.json();
+    console.log("Instagram /me profile response:", profileData);
+
+    // Prefer user_id (the Business Account ID used by webhooks). Fall back
+    // to id only if user_id isn't present, and log a warning so this is
+    // visible if it ever happens again.
+    const webhookMatchingId = profileData.user_id || profileData.id;
+    if (!profileData.user_id) {
+      console.error(
+        "WARNING: Instagram /me did not return user_id, falling back to id. Webhook matching may fail. Full response:",
+        profileData
+      );
+    }
 
     // Step 3: save the connection to the database.
     await supabase.from("instagram_accounts").upsert(
       {
         user_id: user.id,
-        ig_user_id: profileData.id,
+        ig_user_id: webhookMatchingId,
         ig_username: profileData.username,
         access_token: tokenData.access_token,
       },
