@@ -2,7 +2,7 @@
 // a connected Instagram account. We check if any automation's keyword
 // matches, and if so, send the DM.
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../lib/supabase-server";
+import { createClient } from "@supabase/supabase-js"; // <-- Change 1: Direct Supabase client import kiya
 
 // Meta calls this once, when you first set up the webhook, to verify you own this URL.
 export async function GET(request) {
@@ -21,7 +21,12 @@ export async function GET(request) {
 export async function POST(request) {
   const body = await request.json();
   console.log("WEBHOOK BODY:", JSON.stringify(body));
-  const supabase = await createClient();
+  
+  // <-- Change 2: Yahan hum explicitly Service Role Key (Admin Key) pass kar rahe hain taaki RLS bypass ho jaye
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
   try {
     const entries = body.entry || [];
@@ -38,7 +43,9 @@ export async function POST(request) {
         const commentText = change.value?.text || "";
         const commenterId = change.value?.from?.id;
         const commenterUsername = change.value?.from?.username;
-        const igAccountId = entry.id; // the Instagram account that received the comment
+        
+        // <-- Change 3: ID ko strictly String banaya hai taaki large number corrupt na ho
+        const igAccountId = String(entry.id).trim(); 
         const commentId = change.value?.id;
 
         console.log("Comment text:", commentText, "| igAccountId:", igAccountId, "| commentId:", commentId);
