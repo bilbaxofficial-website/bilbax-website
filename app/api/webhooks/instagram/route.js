@@ -81,8 +81,23 @@ async function sendFollowGateDM(igAccountId, accessToken, recipient, promptText)
   });
 }
 
-async function checkIsFollower() {
-  return true;
+// Real Meta Graph API check to verify if user actually follows the account
+async function checkIsFollower(igAccountId, accessToken, commenterIgId) {
+  try {
+    const res = await fetch(
+      `https://graph.instagram.com/v21.0/${commenterIgId}?fields=follows_you&access_token=${accessToken}`
+    );
+    const data = await res.json();
+    console.log("🔍 Follow verification response:", data);
+
+    if (data && typeof data.follows_you === "boolean") {
+      return data.follows_you;
+    }
+    return false;
+  } catch (err) {
+    console.error("❌ Follow check failed:", err);
+    return false;
+  }
 }
 
 export async function POST(request) {
@@ -256,7 +271,8 @@ export async function POST(request) {
         const recipient = { id: senderId };
 
         if (pending.status === "awaiting_follow") {
-          const isFollower = await checkIsFollower();
+          // Verify actual follow status via Meta API
+          const isFollower = await checkIsFollower(igAccountId, account.access_token, senderId);
 
           if (isFollower) {
             await supabase
@@ -274,7 +290,13 @@ export async function POST(request) {
               dm_sent: dmSent,
             });
           } else {
-            await sendFollowGateDM(igAccountId, account.access_token, recipient, automation.follow_prompt);
+            // User hasn't followed yet -> Re-prompt warning message
+            await sendFollowGateDM(
+              igAccountId,
+              account.access_token,
+              recipient,
+              "❌ Aapne abhi tak follow nahi kiya hai! Pehle account ko follow karein, fir iss button par click karein."
+            );
           }
           continue;
         }
@@ -294,7 +316,7 @@ export async function POST(request) {
             collected_value: text,
           });
 
-          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
+          await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
         }
       }
     }
