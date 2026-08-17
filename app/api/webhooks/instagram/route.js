@@ -1,15 +1,18 @@
 // This is the engine. Meta calls this URL whenever:
-//  - someone comments on a connected Instagram account (change.field === "comments")
-//  - someone sends/replies to a DM (change.field === "messages")
+//  - someone comments (change.field === "comments")
+//  - someone replies to a DM, including tapping a quick-reply button (entry.messaging)
 //
-// Phase 3 adds a small conversation flow:
+// Flow:
 //   comment matches keyword
-//     -> if automation requires a follow and they don't follow: send follow_prompt, STOP (wait for them to comment again)
-//     -> if automation collects email/phone: send collect_prompt, STOP (wait for their DM reply)
-//     -> otherwise: send the final dm_message right away
-//   DM reply arrives while we're waiting on them
-//     -> if we were waiting for their follow: they re-comment, so this path isn't used
-//     -> if we were waiting for data (email/phone): save their reply as the answer, send the final dm_message
+//     -> reply publicly (optional)
+//     -> if automation requires a follow: send ONE DM with a
+//        "✅ I followed, unlock now" quick-reply button, STOP (wait for tap)
+//     -> else if automation collects email/phone: send collect_prompt, STOP (wait for reply)
+//     -> else: send the final message right away (as a button DM if button_title/button_url are set)
+//
+//   DM reply / button tap arrives
+//     -> if waiting on follow-check tap: verify (best effort) then send the final message
+//     -> if waiting on data (email/phone): save it, then send the final message
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase-server";
 
@@ -25,39 +28,84 @@ export async function GET(request) {
   return new Response("Forbidden", { status: 403 });
 }
 
-async function sendDM(igAccountId, accessToken, recipientId, text, isCommentId = false) {
-  const recipient = isCommentId ? { comment_id: recipientId } : { id: recipientId };
+async function callSendAPI(igAccountId, accessToken, recipient, message) {
   const res = await fetch(`https://graph.instagram.com/v21.0/${igAccountId}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      recipient,
-      message: { text },
-      access_token: accessToken,
-    }),
+    body: JSON.stringify({ recipient, message, access_token: accessToken }),
   });
   const data = await res.json();
   console.log("Send DM result:", data);
   return !data.error;
 }
 
-async function checkIsFollower(igAccountId, accessToken, commenterId) {
-  // Instagram Graph API: check if commenterId follows igAccountId.
-  // Falls back to "not a follower" if the check itself fails, so the
-  // gate stays safe (asks them to follow) rather than silently skipping it.
-  try {
-    const res = await fetch(
-      `https://graph.instagram.com/v21.0/${igAccountId}?fields=followers_count&access_token=${accessToken}`
-    );
-    // NOTE: Instagram's public Graph API does not expose a direct
-    // "does user X follow me" lookup for arbitrary commenters yet.
-    // As a practical placeholder, treat everyone as needing to be asked
-    // to follow the first time, until Meta's API supports a real check.
-    // (Left explicit so it's easy to find and swap in the real check.)
-    return false;
-  } catch {
-    return false;
+// Plain text DM to an existing thread (we already have their user id).
+async function sendTextDM(igAccountId, accessToken, recipientId, text) {
+  return callSendAPI(igAccountId, accessToken, { id: recipientId }, { text });
+}
+
+// Plain text DM triggered straight from a comment (no thread yet, use comment_id).
+async function sendFirstTextDM(igAccountId, accessToken, commentId, text) {
+  return callSendAPI(igAccountId, accessToken, { comment_id: commentId }, { text });
+}
+
+// Button-template DM: message text + one tappable link button.
+async function sendButtonDM(igAccountId, accessToken, recipient, text, buttonTitle, buttonUrl) {
+  return callSendAPI(igAccountId, accessToken, recipient, {
+    attachment: {
+      type: "template",
+      payload: {
+        template_type: "button",
+        text,
+        buttons: [
+          {
+            type: "web_url",
+            url: buttonUrl,
+            title: buttonTitle.slice(0, 20),
+          },
+        ],
+      },
+    },
+  });
+}
+
+// Sends the automation's final message - as a button DM if a button is
+// configured, otherwise as plain text. Works for both "first DM from a
+// comment" (recipient = comment_id) and "reply in an existing thread"
+// (recipient = their user id).
+async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
+  const text = automation.dm_message.replace(/\{first_name\}/g, firstName);
+  if (automation.button_title && automation.button_url) {
+    return callSendAPI(igAccountId, accessToken, recipient, {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text,
+          buttons: [
+            { type: "web_url", url: automation.button_url, title: automation.button_title.slice(0, 20) },
+          ],
+        },
+      },
+    });
   }
+  return callSendAPI(igAccountId, accessToken, recipient, { text });
+}
+
+async function sendFollowGateDM(igAccountId, accessToken, recipient, promptText) {
+  return callSendAPI(igAccountId, accessToken, recipient, {
+    text: promptText,
+    quick_replies: [
+      { content_type: "text", title: "✅ I followed, unlock now", payload: "BILBAX_FOLLOW_CHECK" },
+    ],
+  });
+}
+
+async function checkIsFollower() {
+  // Instagram's Graph API does not currently expose a direct "does user X
+  // follow me" lookup for arbitrary users. Until Meta adds that, the
+  // button tap itself is treated as their confirmation.
+  return true;
 }
 
 export async function POST(request) {
@@ -73,7 +121,7 @@ export async function POST(request) {
       const changes = entry.changes || [];
       const messaging = entry.messaging || [];
 
-      // --- Handle comment events ---
+      // --- Comment events ---
       for (const change of changes) {
         if (change.field !== "comments") continue;
 
@@ -103,40 +151,36 @@ export async function POST(request) {
         });
         if (!matched) continue;
 
-        // Reply publicly on the comment (best effort).
         if (matched.comment_reply) {
           try {
             await fetch(`https://graph.instagram.com/v21.0/${commentId}/replies`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                message: matched.comment_reply,
-                access_token: account.access_token,
-              }),
+              body: JSON.stringify({ message: matched.comment_reply, access_token: account.access_token }),
             });
           } catch {}
         }
 
+        const recipient = { comment_id: commentId };
+
         // Step 1: follow gate.
         if (matched.require_follow) {
-          const isFollower = await checkIsFollower(igAccountId, account.access_token, commenterId);
-          if (!isFollower) {
-            await sendDM(igAccountId, account.access_token, commentId, matched.follow_prompt, true);
-            await supabase.from("message_logs").insert({
+          const sent = await sendFollowGateDM(igAccountId, account.access_token, recipient, matched.follow_prompt);
+          if (sent) {
+            await supabase.from("conversation_state").insert({
               automation_id: matched.id,
+              ig_account_id: account.id,
               commenter_ig_id: commenterId,
               commenter_username: commenterUsername,
-              matched_keyword: matched.keywords.includes("*") ? "*" : matched.keywords[0],
-              dm_sent: true,
-              error: "waiting_for_follow",
+              status: "awaiting_follow",
             });
-            continue; // stop here - they need to follow and comment again
           }
+          continue;
         }
 
         // Step 2: data collection gate.
         if (matched.collect_field) {
-          const sent = await sendDM(igAccountId, account.access_token, commentId, matched.collect_prompt, true);
+          const sent = await sendFirstTextDM(igAccountId, account.access_token, commentId, matched.collect_prompt);
           if (sent) {
             await supabase.from("conversation_state").insert({
               automation_id: matched.id,
@@ -146,13 +190,12 @@ export async function POST(request) {
               status: "awaiting_data",
             });
           }
-          continue; // stop here - wait for their DM reply with the info
+          continue;
         }
 
-        // No gates - send the final message right away.
+        // No gates - send the final message right away (button or plain text).
         const firstName = commenterUsername || "there";
-        const personalized = matched.dm_message.replace(/\{first_name\}/g, firstName);
-        const dmSent = await sendDM(igAccountId, account.access_token, commentId, personalized, true);
+        const dmSent = await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
 
         await supabase.from("message_logs").insert({
           automation_id: matched.id,
@@ -163,7 +206,7 @@ export async function POST(request) {
         });
       }
 
-      // --- Handle incoming DM replies (for data collection step) ---
+      // --- Incoming DM replies (button taps + typed replies) ---
       for (const msg of messaging) {
         const senderId = msg.sender?.id;
         const text = msg.message?.text;
@@ -176,41 +219,62 @@ export async function POST(request) {
           .maybeSingle();
         if (!account) continue;
 
-        // Find the most recent thing we're waiting on from this person.
         const { data: pending } = await supabase
           .from("conversation_state")
           .select("*, automations(*)")
           .eq("ig_account_id", account.id)
           .eq("commenter_ig_id", senderId)
-          .eq("status", "awaiting_data")
+          .in("status", ["awaiting_follow", "awaiting_data"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
         if (!pending) continue;
-
-        // Save their reply as the collected value.
-        await supabase
-          .from("conversation_state")
-          .update({ status: "completed", collected_value: text, updated_at: new Date().toISOString() })
-          .eq("id", pending.id);
-
-        // Save it to the lead log too.
-        await supabase.from("message_logs").insert({
-          automation_id: pending.automation_id,
-          commenter_ig_id: senderId,
-          commenter_username: pending.commenter_username,
-          matched_keyword: "data_collected",
-          dm_sent: true,
-          collected_value: text,
-        });
-
-        // Send the final message.
         const automation = pending.automations;
-        if (automation) {
-          const firstName = pending.commenter_username || "there";
-          const personalized = automation.dm_message.replace(/\{first_name\}/g, firstName);
-          await sendDM(igAccountId, account.access_token, senderId, personalized, false);
+        if (!automation) continue;
+        const firstName = pending.commenter_username || "there";
+        const recipient = { id: senderId };
+
+        if (pending.status === "awaiting_follow") {
+          const isFollower = await checkIsFollower();
+
+          if (isFollower) {
+            await supabase
+              .from("conversation_state")
+              .update({ status: "completed", updated_at: new Date().toISOString() })
+              .eq("id", pending.id);
+
+            const dmSent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
+
+            await supabase.from("message_logs").insert({
+              automation_id: automation.id,
+              commenter_ig_id: senderId,
+              commenter_username: pending.commenter_username,
+              matched_keyword: "follow_verified",
+              dm_sent: dmSent,
+            });
+          } else {
+            await sendFollowGateDM(igAccountId, account.access_token, recipient, automation.follow_prompt);
+          }
+          continue;
+        }
+
+        if (pending.status === "awaiting_data") {
+          await supabase
+            .from("conversation_state")
+            .update({ status: "completed", collected_value: text, updated_at: new Date().toISOString() })
+            .eq("id", pending.id);
+
+          await supabase.from("message_logs").insert({
+            automation_id: automation.id,
+            commenter_ig_id: senderId,
+            commenter_username: pending.commenter_username,
+            matched_keyword: "data_collected",
+            dm_sent: true,
+            collected_value: text,
+          });
+
+          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
         }
       }
     }
