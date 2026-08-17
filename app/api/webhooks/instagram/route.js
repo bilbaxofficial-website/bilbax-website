@@ -13,15 +13,22 @@ export async function GET(request) {
   return new Response("Forbidden", { status: 403 });
 }
 
+// Helper: Instagram Graph API call to send DM
 async function callSendAPI(igAccountId, accessToken, recipient, message) {
-  const res = await fetch(`https://graph.instagram.com/v21.0/${igAccountId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ recipient, message, access_token: accessToken }),
-  });
-  const data = await res.json();
-  console.log("Send DM result:", data);
-  return !data.error;
+  console.log("📤 Sending DM via Meta API...", { recipient, message });
+  try {
+    const res = await fetch(`https://graph.instagram.com/v21.0/${igAccountId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient, message, access_token: accessToken }),
+    });
+    const data = await res.json();
+    console.log("📩 Meta Send API Response:", JSON.stringify(data));
+    return !data.error;
+  } catch (err) {
+    console.error("❌ Send API Fetch Error:", err);
+    return false;
+  }
 }
 
 async function sendFirstTextDM(igAccountId, accessToken, commentId, text) {
@@ -29,9 +36,9 @@ async function sendFirstTextDM(igAccountId, accessToken, commentId, text) {
 }
 
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
-  const text = automation.dm_message.replace(/\{first_name\}/g, firstName);
+  const text = (automation.dm_message || "").replace(/\{first_name\}/g, firstName);
 
-  // Check for dynamic buttons array or legacy fallback
+  // Dynamic buttons check
   const buttonList = Array.isArray(automation.buttons) && automation.buttons.length > 0
     ? automation.buttons
     : (automation.button_title && automation.button_url 
@@ -39,7 +46,6 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
         : []);
 
   if (buttonList.length > 0) {
-    // Meta Instagram API Button Template accepts up to 3 buttons per card natively
     const payloadButtons = buttonList.slice(0, 3).map((b) => ({
       type: "web_url",
       url: b.url,
@@ -71,66 +77,106 @@ async function sendFollowGateDM(igAccountId, accessToken, recipient, promptText)
 }
 
 async function checkIsFollower() {
-  return true;
+  return true; // Webhook limitation bypass for demo
 }
 
 export async function POST(request) {
-  const body = await request.json();
-  console.log("WEBHOOK BODY:", JSON.stringify(body));
-  const supabase = await createClient();
-
   try {
+    const body = await request.json();
+    console.log("🚀 FULL WEBHOOK BODY RECEIVED:", JSON.stringify(body, null, 2));
+
+    const supabase = await createClient();
     const entries = body.entry || [];
 
     for (const entry of entries) {
-      const igAccountId = entry.id;
+      const igAccountId = String(entry.id || "").trim();
+      console.log("📌 Step 1: Processing Meta Account ID:", igAccountId);
+
       const changes = entry.changes || [];
       const messaging = entry.messaging || [];
 
-      // --- Comment events ---
+      // ----------------- 1. COMMENTS PROCESSOR -----------------
       for (const change of changes) {
-        if (change.field !== "comments") continue;
+        if (change.field !== "comments") {
+          console.log("ℹ️ Skipping non-comment field:", change.field);
+          continue;
+        }
 
-        const commentText = change.value?.text || "";
-        const commenterId = change.value?.from?.id;
-        const commenterUsername = change.value?.from?.username;
-        const commentId = change.value?.id;
+        const commentVal = change.value || {};
+        const commentText = (commentVal.text || "").trim();
+        const commenterId = commentVal.from?.id;
+        const commenterUsername = commentVal.from?.username;
+        const commentId = commentVal.id;
 
-        const { data: account } = await supabase
+        console.log("💬 Step 2: New Comment Detected:", { commentText, commenterId, commenterUsername, commentId });
+
+        // Query Database for Connected Account
+        const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
-          .select("id, access_token")
+          .select("id, access_token, ig_user_id")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
-        if (!account) continue;
 
-        const { data: automations } = await supabase
+        if (accountErr || !account) {
+          console.error("❌ Step 3 FAIL: Account not found in Database for ig_user_id:", igAccountId, "DB Error:", accountErr);
+          
+          // Debugging log: show all registered accounts
+          const { data: allAccounts } = await supabase.from("instagram_accounts").select("id, ig_user_id");
+          console.log("📋 Registered DB IG User IDs:", allAccounts);
+          continue;
+        }
+
+        console.log("✅ Step 3 SUCCESS: Matched DB Account UUID:", account.id);
+
+        // Fetch active automations for this account
+        const { data: automations, error: autoErr } = await supabase
           .from("automations")
           .select("*")
           .eq("ig_account_id", account.id)
           .eq("status", "active");
-        if (!automations || automations.length === 0) continue;
 
+        if (autoErr || !automations || automations.length === 0) {
+          console.error("⚠️ Step 4 FAIL: No active automations found for account:", account.id, "Error:", autoErr);
+          continue;
+        }
+
+        console.log(`🤖 Step 4 SUCCESS: Found ${automations.length} active automation(s)`);
+
+        // Keyword Matcher Logic
         const matched = automations.find((a) => {
-          if (a.keywords.includes("*")) return true;
-          const lower = commentText.toLowerCase();
-          return a.keywords.some((kw) => lower.includes(kw.toLowerCase()));
+          const kwList = Array.isArray(a.keywords) ? a.keywords : [];
+          if (kwList.includes("*")) return true;
+          
+          const lowerText = commentText.toLowerCase();
+          return kwList.some((kw) => lowerText.includes(String(kw).toLowerCase().trim()));
         });
-        if (!matched) continue;
 
+        if (!matched) {
+          console.log(`⚠️ Step 5 FAIL: Comment "${commentText}" did not match any active keyword.`);
+          continue;
+        }
+
+        console.log("🎯 Step 5 SUCCESS: Matched Automation ID:", matched.id);
+
+        // Public Comment Reply (if configured)
         if (matched.comment_reply) {
           try {
+            console.log("💬 Replying publicly to comment:", matched.comment_reply);
             await fetch(`https://graph.instagram.com/v21.0/${commentId}/replies`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ message: matched.comment_reply, access_token: account.access_token }),
             });
-          } catch {}
+          } catch (e) {
+            console.error("❌ Public reply failed:", e);
+          }
         }
 
         const recipient = { comment_id: commentId };
 
-        // Step 1: follow gate.
+        // Gate 1: Follow Requirement
         if (matched.require_follow) {
+          console.log("🔒 Triggering Follow Gate...");
           const sent = await sendFollowGateDM(igAccountId, account.access_token, recipient, matched.follow_prompt);
           if (sent) {
             await supabase.from("conversation_state").insert({
@@ -144,8 +190,9 @@ export async function POST(request) {
           continue;
         }
 
-        // Step 2: data collection gate.
+        // Gate 2: Data Collection Requirement
         if (matched.collect_field) {
+          console.log("🔒 Triggering Data Collection Gate...");
           const sent = await sendFirstTextDM(igAccountId, account.access_token, commentId, matched.collect_prompt);
           if (sent) {
             await supabase.from("conversation_state").insert({
@@ -159,7 +206,8 @@ export async function POST(request) {
           continue;
         }
 
-        // No gates - send the final message right away
+        // Direct DM Sending (No Gates)
+        console.log("✉️ Sending direct final DM...");
         const firstName = commenterUsername || "there";
         const dmSent = await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
 
@@ -170,19 +218,24 @@ export async function POST(request) {
           matched_keyword: matched.keywords.includes("*") ? "*" : matched.keywords[0],
           dm_sent: dmSent,
         });
+        
+        console.log("🎉 Automation completed successfully!");
       }
 
-      // --- Incoming DM replies ---
+      // ----------------- 2. INCOMING DM RESPONSES -----------------
       for (const msg of messaging) {
         const senderId = msg.sender?.id;
-        const text = msg.message?.text;
+        const text = (msg.message?.text || "").trim();
         if (!senderId || !text) continue;
+
+        console.log("📩 Incoming Direct Message from user:", senderId, "Text:", text);
 
         const { data: account } = await supabase
           .from("instagram_accounts")
           .select("id, access_token")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
+
         if (!account) continue;
 
         const { data: pending } = await supabase
@@ -195,9 +248,8 @@ export async function POST(request) {
           .limit(1)
           .maybeSingle();
 
-        if (!pending) continue;
+        if (!pending || !pending.automations) continue;
         const automation = pending.automations;
-        if (!automation) continue;
         const firstName = pending.commenter_username || "there";
         const recipient = { id: senderId };
 
@@ -247,7 +299,7 @@ export async function POST(request) {
 
     return NextResponse.json({ status: "ok" });
   } catch (err) {
-    console.error("Webhook error:", err);
+    console.error("🔥 CRITICAL WEBHOOK ERROR:", err);
     return NextResponse.json({ status: "error" }, { status: 200 });
   }
 }
