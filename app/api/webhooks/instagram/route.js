@@ -22,33 +22,39 @@ export async function GET(request) {
 
 async function callSendAPI(igAccountId, accessToken, recipient, message) {
   try {
+    console.log("🚀 SENDING API CALL TO:", recipient.id || recipient.comment_id);
     const res = await fetch(`https://graph.instagram.com/v21.0/${igAccountId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ recipient, message, access_token: accessToken }),
     });
     const data = await res.json();
+    if (data.error) {
+      console.error("❌ META API ERROR:", data.error.message);
+    } else {
+      console.log("✅ MESSAGE SENT SUCCESSFULLY!");
+    }
     return !data.error;
   } catch (err) {
-    console.error("❌ Send API Error:", err);
+    console.error("❌ FETCH ERROR:", err);
     return false;
   }
 }
 
-// STEP 1: Pehla follow prompt (Quick Reply Button)
+// STEP 1: Pehla follow prompt
 async function sendFirstFollowGate(igAccountId, accessToken, recipient, promptText) {
   return callSendAPI(igAccountId, accessToken, recipient, {
-    text: promptText || "Follow me first, then tap the button below and I'll send it right over! 🙌",
+    text: promptText || "Follow me first, then tap the button below!",
     quick_replies: [
-      { content_type: "text", title: "✅ I followed, unlock...", payload: "FIRST_FOLLOW_CHECK" },
+      // ⚠️ IMPORTANT: Max 20 characters allowed by Meta for title!
+      { content_type: "text", title: "✅ Yes, I Followed", payload: "FIRST_FOLLOW_CHECK" },
     ],
   });
 }
 
-// STEP 2: 2 second delay ke baad Profile Link + Second Button Gate
+// STEP 2: Profile Link + Second Button Gate
 async function sendSecondProfileGate(igAccountId, accessToken, recipient, creatorUsername) {
-  await delay(2000); // 2 Second Pause
-
+  await delay(2000);
   const profileUrl = `https://instagram.com/${creatorUsername}`;
 
   return callSendAPI(igAccountId, accessToken, recipient, {
@@ -58,16 +64,8 @@ async function sendSecondProfileGate(igAccountId, accessToken, recipient, creato
         template_type: "button",
         text: `Please check if you follow @${creatorUsername}! Click below to verify or follow, then unlock your link.`,
         buttons: [
-          {
-            type: "web_url",
-            url: profileUrl,
-            title: "📲 Click to Follow",
-          },
-          {
-            type: "postback",
-            title: "✅ Yes, I Followed",
-            payload: "SECOND_FOLLOW_CONFIRMED",
-          },
+          { type: "web_url", url: profileUrl, title: "📲 Click to Follow" },
+          { type: "postback", title: "✅ Unlock Link", payload: "SECOND_FOLLOW_CONFIRMED" },
         ],
       },
     },
@@ -92,14 +90,7 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
     }));
 
     return callSendAPI(igAccountId, accessToken, recipient, {
-      attachment: {
-        type: "template",
-        payload: {
-          template_type: "button",
-          text,
-          buttons: payloadButtons,
-        },
-      },
+      attachment: { type: "template", payload: { template_type: "button", text, buttons: payloadButtons } },
     });
   }
 
@@ -109,6 +100,8 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
 export async function POST(request) {
   try {
     const body = await request.json();
+    console.log("-----------------------------------------");
+    console.log("📥 NEW WEBHOOK RECEIVED:", JSON.stringify(body).slice(0, 300));
     const entries = body.entry || [];
 
     for (const entry of entries) {
@@ -116,15 +109,18 @@ export async function POST(request) {
       const changes = entry.changes || [];
       const messaging = entry.messaging || [];
 
-      // ----------------- 1. COMMENTS PROCESSOR -----------------
+      // ------------- 1. COMMENTS PROCESSOR -------------
       for (const change of changes) {
         if (change.field !== "comments") continue;
-
+        
         const commentVal = change.value || {};
         const commentText = (commentVal.text || "").trim();
         const commenterId = commentVal.from?.id;
         const commenterUsername = commentVal.from?.username;
         const commentId = commentVal.id;
+
+        console.log(`💬 COMMENT DETECTED: "${commentText}" from User IG_ID: ${commenterId}`);
+        console.log(`🔍 SEARCHING DB FOR ACCOUNT ID: ${igAccountId}`);
 
         const { data: account } = await supabase
           .from("instagram_accounts")
@@ -132,7 +128,12 @@ export async function POST(request) {
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
 
-        if (!account) continue;
+        if (!account) {
+          console.log("🛑 STOP: ig_user_id database mein nahi mila!");
+          continue;
+        }
+        
+        console.log("✅ ACCOUNT FOUND IN DB:", account.username);
 
         const { data: automations } = await supabase
           .from("automations")
@@ -140,30 +141,33 @@ export async function POST(request) {
           .eq("ig_account_id", account.id)
           .eq("status", "active");
 
-        if (!automations || automations.length === 0) continue;
+        if (!automations || automations.length === 0) {
+          console.log("🛑 STOP: Koi active automation nahi mili is account ke liye!");
+          continue;
+        }
 
         const matched = automations.find((a) => {
           const kwList = Array.isArray(a.keywords) ? a.keywords : [];
           if (kwList.includes("*")) return true;
-          const lowerText = commentText.toLowerCase();
-          return kwList.some((kw) => lowerText.includes(String(kw).toLowerCase().trim()));
+          return kwList.some((kw) => commentText.toLowerCase().includes(String(kw).toLowerCase().trim()));
         });
 
-        if (!matched) continue;
+        if (!matched) {
+          console.log(`🛑 STOP: Comment "${commentText}" kisi keyword se match nahi hua!`);
+          continue;
+        }
+        
+        console.log("✅ AUTOMATION MATCHED:", matched.id);
 
-        if (matched.comment_reply) {
-          try {
-            await fetch(`https://graph.instagram.com/v21.0/${commentId}/replies`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ message: matched.comment_reply, access_token: account.access_token }),
-            });
-          } catch (e) {}
+        if (!commenterId) {
+           console.log("⚠️ WARNING: Commenter ka ID null hai. Shayad app me permissions kam hain.");
+           continue;
         }
 
         const recipient = { comment_id: commentId };
 
         if (matched.require_follow) {
+          console.log("🔄 FLOW: Require Follow ENABLED, Sending First Gate...");
           const sent = await sendFirstFollowGate(igAccountId, account.access_token, recipient, matched.follow_prompt);
           if (sent) {
             await supabase.from("conversation_state").insert({
@@ -173,21 +177,22 @@ export async function POST(request) {
               commenter_username: commenterUsername,
               status: "awaiting_first_click",
             });
+            console.log("✅ DB STATE UPDATED: awaiting_first_click");
           }
           continue;
         }
 
-        // Direct Send
-        const firstName = commenterUsername || "there";
-        await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
+        console.log("🔄 FLOW: Direct send link (Follow not required)...");
+        await sendFinalMessage(igAccountId, account.access_token, matched, recipient, commenterUsername || "there");
       }
 
-      // ----------------- 2. INCOMING DM / BUTTON CLICKS -----------------
+      // ------------- 2. DM / BUTTON CLICKS PROCESSOR -------------
       for (const msg of messaging) {
         const senderId = msg.sender?.id;
         const textPayload = msg.message?.quick_reply?.payload || msg.postback?.payload || (msg.message?.text || "").trim();
         
         if (!senderId) continue;
+        console.log(`📩 INBOX EVENT: Sender=${senderId} | Payload/Text=${textPayload}`);
 
         const { data: account } = await supabase
           .from("instagram_accounts")
@@ -197,7 +202,6 @@ export async function POST(request) {
 
         if (!account) continue;
 
-        // FETCH ACTIVE STATE
         const { data: pending } = await supabase
           .from("conversation_state")
           .select("*, automations(*)")
@@ -208,39 +212,34 @@ export async function POST(request) {
           .limit(1)
           .maybeSingle();
 
-        if (!pending || !pending.automations) continue;
+        if (!pending || !pending.automations) {
+           console.log("🛑 STOP: Is user ke liye DB mein koi pending state nahi hai.");
+           continue;
+        }
+
         const automation = pending.automations;
-        const firstName = pending.commenter_username || "there";
         const recipient = { id: senderId };
 
-        // STEP 1 CLICKED: "✅ I followed, unlock..."
-        if (pending.status === "awaiting_first_click" && (textPayload === "FIRST_FOLLOW_CHECK" || textPayload.includes("followed"))) {
-          await supabase
-            .from("conversation_state")
-            .update({ status: "awaiting_second_click", updated_at: new Date().toISOString() })
-            .eq("id", pending.id);
-
-          // Creator ka username account table se leke second gate bhejo (with 2 sec delay)
-          const creatorUsername = account.username || "instagram";
-          await sendSecondProfileGate(igAccountId, account.access_token, recipient, creatorUsername);
+        // FIRST GATE CLICKED
+        if (pending.status === "awaiting_first_click" && (textPayload === "FIRST_FOLLOW_CHECK" || textPayload.toLowerCase().includes("followed"))) {
+          console.log("✅ FIRST GATE PASSED! Wait for 2 sec, sending Second Gate...");
+          await supabase.from("conversation_state").update({ status: "awaiting_second_click", updated_at: new Date().toISOString() }).eq("id", pending.id);
+          await sendSecondProfileGate(igAccountId, account.access_token, recipient, account.username || "instagram");
           continue;
         }
 
-        // STEP 2 CLICKED: "✅ Yes, I Followed"
-        if (pending.status === "awaiting_second_click" && (textPayload === "SECOND_FOLLOW_CONFIRMED" || textPayload.includes("Yes"))) {
-          await supabase
-            .from("conversation_state")
-            .update({ status: "completed", updated_at: new Date().toISOString() })
-            .eq("id", pending.id);
-
-          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
+        // SECOND GATE CLICKED
+        if (pending.status === "awaiting_second_click" && (textPayload === "SECOND_FOLLOW_CONFIRMED" || textPayload.toLowerCase().includes("yes"))) {
+           console.log("✅ SECOND GATE PASSED! Sending Final Link...");
+           await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
+           await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
         }
       }
     }
 
     return NextResponse.json({ status: "ok" });
   } catch (err) {
-    console.error("🔥 WEBHOOK ERROR:", err);
+    console.error("🔥 FATAL WEBHOOK ERROR:", err);
     return NextResponse.json({ status: "error" }, { status: 200 });
   }
 }
