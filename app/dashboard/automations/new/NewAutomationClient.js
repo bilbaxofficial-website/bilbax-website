@@ -12,6 +12,17 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
   const [keywords, setKeywords] = useState("");
   const [dmMessage, setDmMessage] = useState("");
   const [commentReply, setCommentReply] = useState("Sent you a DM! 📩");
+
+  // Phase 3: growth features
+  const [requireFollow, setRequireFollow] = useState(false);
+  const [followPrompt, setFollowPrompt] = useState(
+    "Follow me first, then comment again and I'll send it right over! 🙌"
+  );
+  const [collectField, setCollectField] = useState("none"); // "none" | "email" | "phone"
+  const [collectPrompt, setCollectPrompt] = useState(
+    "What's the best email to send this to?"
+  );
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,6 +55,11 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
       dm_message: dmMessage,
       comment_reply: commentReply || null,
       status: "active",
+      // Phase 3 fields
+      require_follow: requireFollow,
+      follow_prompt: requireFollow ? followPrompt : null,
+      collect_field: collectField === "none" ? null : collectField,
+      collect_prompt: collectField === "none" ? null : collectPrompt,
     });
 
     setSaving(false);
@@ -105,8 +121,83 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
             </div>
           )}
 
+          {/* ---------- Phase 3: Ask to Follow ---------- */}
           <div className="field-group">
-            <label className="field-label">DM message to send</label>
+            <div className="switch-row">
+              <div className="switch-text">
+                <label className="field-label" style={{ marginBottom: 2 }}>
+                  Ask them to follow first
+                </label>
+                <div className="field-hint" style={{ marginTop: 0 }}>
+                  If they don't follow you yet, they'll get a "follow to unlock" reply instead of the DM.
+                </div>
+              </div>
+              <button
+                type="button"
+                className={`switch ${requireFollow ? "on" : ""}`}
+                onClick={() => setRequireFollow(!requireFollow)}
+                aria-pressed={requireFollow}
+              />
+            </div>
+            {requireFollow && (
+              <input
+                type="text"
+                className="field-input"
+                style={{ marginTop: 12 }}
+                placeholder="Follow me first, then comment again..."
+                value={followPrompt}
+                onChange={(e) => setFollowPrompt(e.target.value)}
+              />
+            )}
+          </div>
+
+          {/* ---------- Phase 3: Data Collection ---------- */}
+          <div className="field-group">
+            <label className="field-label">Collect info before sending the link</label>
+            <div className="toggle-row toggle-row-3">
+              <button
+                type="button"
+                className={`toggle-btn ${collectField === "none" ? "active" : ""}`}
+                onClick={() => setCollectField("none")}
+              >
+                Don't ask
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${collectField === "email" ? "active" : ""}`}
+                onClick={() => setCollectField("email")}
+              >
+                Ask email
+              </button>
+              <button
+                type="button"
+                className={`toggle-btn ${collectField === "phone" ? "active" : ""}`}
+                onClick={() => setCollectField("phone")}
+              >
+                Ask phone
+              </button>
+            </div>
+            {collectField !== "none" && (
+              <>
+                <input
+                  type="text"
+                  className="field-input"
+                  style={{ marginTop: 12 }}
+                  placeholder={`What's the best ${collectField} to send this to?`}
+                  value={collectPrompt}
+                  onChange={(e) => setCollectPrompt(e.target.value)}
+                />
+                <div className="field-hint">
+                  Sent as a DM before the main message. Their reply is saved as the lead's {collectField}.
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="field-group">
+            <label className="field-label">
+              {collectField !== "none" || requireFollow ? "Final DM message" : "DM message to send"}
+            </label>
             <textarea
               className="field-textarea"
               placeholder="Hey {first_name}! Here's the link you asked for: ..."
@@ -128,6 +219,19 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
             />
             <div className="field-hint">Shown publicly under their comment. Leave blank to skip.</div>
           </div>
+
+          {/* Flow summary so the user can see what they've built */}
+          {(requireFollow || collectField !== "none") && (
+            <div className="flow-preview">
+              <div className="flow-preview-label">What happens, in order</div>
+              <ol>
+                <li>Someone comments {triggerType === "keyword" ? `"${keywords || "your keyword"}"` : "on your post"}</li>
+                {requireFollow && <li>If not following → sends: "{followPrompt}"</li>}
+                {collectField !== "none" && <li>Asks: "{collectPrompt}"</li>}
+                <li>Sends the final DM message above</li>
+              </ol>
+            </div>
+          )}
 
           <button className="save-btn" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save automation"}
@@ -219,6 +323,10 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           display: flex;
           gap: 8px;
         }
+        .toggle-row-3 .toggle-btn {
+          font-size: 12px;
+          padding: 12px 6px;
+        }
         .toggle-btn {
           flex: 1;
           padding: 12px;
@@ -253,6 +361,69 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           font-size: 12px;
           color: #8a8496;
           margin-top: 6px;
+        }
+        .switch-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          border: 2px solid #14121f;
+          border-radius: 12px;
+          padding: 14px 16px;
+          background: #fff8ed;
+        }
+        .switch-text {
+          flex: 1;
+        }
+        .switch {
+          flex-shrink: 0;
+          width: 46px;
+          height: 26px;
+          border: 2px solid #14121f;
+          border-radius: 20px;
+          background: #fff;
+          position: relative;
+          cursor: pointer;
+          padding: 0;
+        }
+        .switch.on {
+          background: #00d4b8;
+        }
+        .switch::after {
+          content: "";
+          position: absolute;
+          width: 18px;
+          height: 18px;
+          background: #14121f;
+          border-radius: 50%;
+          top: 2px;
+          left: 2px;
+          transition: transform 0.15s ease;
+        }
+        .switch.on::after {
+          transform: translateX(19px);
+        }
+        .flow-preview {
+          border: 2px dashed #14121f;
+          border-radius: 12px;
+          padding: 14px 16px;
+          margin-bottom: 22px;
+          background: #f5f0ff;
+        }
+        .flow-preview-label {
+          font-weight: 800;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #7c3aed;
+          margin-bottom: 8px;
+        }
+        .flow-preview ol {
+          margin: 0;
+          padding-left: 18px;
+          font-size: 13px;
+          color: #14121f;
+          line-height: 1.6;
         }
         .save-btn {
           width: 100%;
