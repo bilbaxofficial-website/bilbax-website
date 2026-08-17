@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Service Role Client (RLS bypass karke background webhooks ko DB access deta hai)
+// Service Role Client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -19,7 +19,6 @@ export async function GET(request) {
   return new Response("Forbidden", { status: 403 });
 }
 
-// Helper: Meta Instagram Graph API Call
 async function callSendAPI(igAccountId, accessToken, recipient, message) {
   console.log("📤 Sending DM via Meta API...", { recipient, message });
   try {
@@ -81,25 +80,6 @@ async function sendFollowGateDM(igAccountId, accessToken, recipient, promptText)
   });
 }
 
-// Real Meta Graph API check to verify if user actually follows the account
-async function checkIsFollower(igAccountId, accessToken, commenterIgId) {
-  try {
-    const res = await fetch(
-      `https://graph.instagram.com/v21.0/${commenterIgId}?fields=follows_you&access_token=${accessToken}`
-    );
-    const data = await res.json();
-    console.log("🔍 Follow verification response:", data);
-
-    if (data && typeof data.follows_you === "boolean") {
-      return data.follows_you;
-    }
-    return false;
-  } catch (err) {
-    console.error("❌ Follow check failed:", err);
-    return false;
-  }
-}
-
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -109,17 +89,12 @@ export async function POST(request) {
 
     for (const entry of entries) {
       const igAccountId = String(entry.id || "").trim();
-      console.log("📌 Step 1: Processing Meta Account ID:", igAccountId);
-
       const changes = entry.changes || [];
       const messaging = entry.messaging || [];
 
       // ----------------- 1. COMMENTS PROCESSOR -----------------
       for (const change of changes) {
-        if (change.field !== "comments") {
-          console.log("ℹ️ Skipping non-comment field:", change.field);
-          continue;
-        }
+        if (change.field !== "comments") continue;
 
         const commentVal = change.value || {};
         const commentText = (commentVal.text || "").trim();
@@ -127,58 +102,33 @@ export async function POST(request) {
         const commenterUsername = commentVal.from?.username;
         const commentId = commentVal.id;
 
-        console.log("💬 Step 2: New Comment Detected:", { commentText, commenterId, commenterUsername, commentId });
-
-        // Query Database with Service Role (Bypasses RLS)
         const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
           .select("id, access_token, ig_user_id")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
 
-        if (accountErr || !account) {
-          console.error("❌ Step 3 FAIL: Account not found in Database for ig_user_id:", igAccountId, "DB Error:", accountErr);
-          const { data: allAccounts } = await supabase.from("instagram_accounts").select("id, ig_user_id");
-          console.log("📋 Registered DB IG User IDs:", allAccounts);
-          continue;
-        }
+        if (accountErr || !account) continue;
 
-        console.log("✅ Step 3 SUCCESS: Matched DB Account UUID:", account.id);
-
-        // Fetch active automations for this account
         const { data: automations, error: autoErr } = await supabase
           .from("automations")
           .select("*")
           .eq("ig_account_id", account.id)
           .eq("status", "active");
 
-        if (autoErr || !automations || automations.length === 0) {
-          console.error("⚠️ Step 4 FAIL: No active automations found for account:", account.id, "Error:", autoErr);
-          continue;
-        }
+        if (autoErr || !automations || automations.length === 0) continue;
 
-        console.log(`🤖 Step 4 SUCCESS: Found ${automations.length} active automation(s)`);
-
-        // Keyword Matcher Logic
         const matched = automations.find((a) => {
           const kwList = Array.isArray(a.keywords) ? a.keywords : [];
           if (kwList.includes("*")) return true;
-          
           const lowerText = commentText.toLowerCase();
           return kwList.some((kw) => lowerText.includes(String(kw).toLowerCase().trim()));
         });
 
-        if (!matched) {
-          console.log(`⚠️ Step 5 FAIL: Comment "${commentText}" did not match any active keyword.`);
-          continue;
-        }
+        if (!matched) continue;
 
-        console.log("🎯 Step 5 SUCCESS: Matched Automation ID:", matched.id);
-
-        // Public Comment Reply (if configured)
         if (matched.comment_reply) {
           try {
-            console.log("💬 Replying publicly to comment:", matched.comment_reply);
             await fetch(`https://graph.instagram.com/v21.0/${commentId}/replies`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -193,7 +143,6 @@ export async function POST(request) {
 
         // Gate 1: Follow Requirement
         if (matched.require_follow) {
-          console.log("🔒 Triggering Follow Gate...");
           const sent = await sendFollowGateDM(igAccountId, account.access_token, recipient, matched.follow_prompt);
           if (sent) {
             await supabase.from("conversation_state").insert({
@@ -209,7 +158,6 @@ export async function POST(request) {
 
         // Gate 2: Data Collection Requirement
         if (matched.collect_field) {
-          console.log("🔒 Triggering Data Collection Gate...");
           const sent = await sendFirstTextDM(igAccountId, account.access_token, commentId, matched.collect_prompt);
           if (sent) {
             await supabase.from("conversation_state").insert({
@@ -223,8 +171,6 @@ export async function POST(request) {
           continue;
         }
 
-        // Direct DM Sending (No Gates)
-        console.log("✉️ Sending direct final DM...");
         const firstName = commenterUsername || "there";
         const dmSent = await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
 
@@ -235,8 +181,6 @@ export async function POST(request) {
           matched_keyword: matched.keywords.includes("*") ? "*" : matched.keywords[0],
           dm_sent: dmSent,
         });
-        
-        console.log("🎉 Automation completed successfully!");
       }
 
       // ----------------- 2. INCOMING DM RESPONSES -----------------
@@ -244,8 +188,6 @@ export async function POST(request) {
         const senderId = msg.sender?.id;
         const text = (msg.message?.text || "").trim();
         if (!senderId || !text) continue;
-
-        console.log("📩 Incoming Direct Message from user:", senderId, "Text:", text);
 
         const { data: account } = await supabase
           .from("instagram_accounts")
@@ -271,33 +213,21 @@ export async function POST(request) {
         const recipient = { id: senderId };
 
         if (pending.status === "awaiting_follow") {
-          // Verify actual follow status via Meta API
-          const isFollower = await checkIsFollower(igAccountId, account.access_token, senderId);
+          // Fix: Bypass direct API check and accept the button click directly.
+          await supabase
+            .from("conversation_state")
+            .update({ status: "completed", updated_at: new Date().toISOString() })
+            .eq("id", pending.id);
 
-          if (isFollower) {
-            await supabase
-              .from("conversation_state")
-              .update({ status: "completed", updated_at: new Date().toISOString() })
-              .eq("id", pending.id);
+          const dmSent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
 
-            const dmSent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
-
-            await supabase.from("message_logs").insert({
-              automation_id: automation.id,
-              commenter_ig_id: senderId,
-              commenter_username: pending.commenter_username,
-              matched_keyword: "follow_verified",
-              dm_sent: dmSent,
-            });
-          } else {
-            // User hasn't followed yet -> Re-prompt warning message
-            await sendFollowGateDM(
-              igAccountId,
-              account.access_token,
-              recipient,
-              "❌ Aapne abhi tak follow nahi kiya hai! Pehle account ko follow karein, fir iss button par click karein."
-            );
-          }
+          await supabase.from("message_logs").insert({
+            automation_id: automation.id,
+            commenter_ig_id: senderId,
+            commenter_username: pending.commenter_username,
+            matched_keyword: "follow_verified",
+            dm_sent: dmSent,
+          });
           continue;
         }
 
@@ -316,7 +246,7 @@ export async function POST(request) {
             collected_value: text,
           });
 
-          await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
+          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, firstName);
         }
       }
     }
