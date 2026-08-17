@@ -30,8 +30,27 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
   const [dmMessage, setDmMessage] = useState("");
   const [commentReply, setCommentReply] = useState("Sent you a DM! 📩");
   const [useButton, setUseButton] = useState(false);
-  const [buttonTitle, setButtonTitle] = useState("Get the link");
-  const [buttonUrl, setButtonUrl] = useState("");
+  
+  // Dynamic Multiple Buttons (Max 5)
+  const [buttons, setButtons] = useState([
+    { title: "Get the link", url: "" }
+  ]);
+
+  function handleAddButton() {
+    if (buttons.length < 5) {
+      setButtons([...buttons, { title: "", url: "" }]);
+    }
+  }
+
+  function handleRemoveButton(index) {
+    setButtons(buttons.filter((_, i) => i !== index));
+  }
+
+  function handleButtonChange(index, field, value) {
+    const updated = [...buttons];
+    updated[index][field] = value;
+    setButtons(updated);
+  }
 
   function validateStep(n) {
     if (n === 1 && triggerType === "keyword" && !keywords.trim()) {
@@ -39,11 +58,17 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
     }
     if (n === 3) {
       if (!dmMessage.trim()) return "Write the final DM message.";
-      if (useButton && (!buttonTitle.trim() || !buttonUrl.trim())) {
-        return "Add both a button label and a link, or turn the button off.";
-      }
-      if (useButton && buttonUrl.trim() && !/^https?:\/\//i.test(buttonUrl.trim())) {
-        return "The link should start with http:// or https://";
+      if (useButton) {
+        if (buttons.length === 0) return "Add at least one button or turn buttons off.";
+        for (let i = 0; i < buttons.length; i++) {
+          const btn = buttons[i];
+          if (!btn.title.trim() || !btn.url.trim()) {
+            return `Button #${i + 1} needs both label text and a URL link.`;
+          }
+          if (!/^https?:\/\//i.test(btn.url.trim())) {
+            return `Button #${i + 1} link must start with http:// or https://`;
+          }
+        }
       }
     }
     return "";
@@ -75,6 +100,10 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
 
     const { data: { user } } = await supabase.auth.getUser();
 
+    const formattedButtons = useButton
+      ? buttons.map((b) => ({ title: b.title.trim(), url: b.url.trim() }))
+      : [];
+
     const { error: insertError } = await supabase.from("automations").insert({
       user_id: user.id,
       ig_account_id: igAccountId,
@@ -87,8 +116,9 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
       follow_prompt: requireFollow ? followPrompt : null,
       collect_field: collectField === "none" ? null : collectField,
       collect_prompt: collectField === "none" ? null : collectPrompt,
-      button_title: useButton ? buttonTitle.trim() : null,
-      button_url: useButton ? buttonUrl.trim() : null,
+      button_title: formattedButtons.length > 0 ? formattedButtons[0].title : null,
+      button_url: formattedButtons.length > 0 ? formattedButtons[0].url : null,
+      buttons: formattedButtons,
     });
 
     setSaving(false);
@@ -115,23 +145,22 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         <h1 className="page-title">Turn a comment into a conversation.</h1>
         <p className="page-sub">for @{igUsername} · 4 quick steps</p>
 
-        <div className="stepper">
+        {/* --- Sleek Compact Stepper Bar --- */}
+        <div className="stepper-bar">
           {STEP_LABELS.map((label, i) => {
             const n = i + 1;
             const done = n < step;
             const active = n === step;
             return (
-              <div className="stepper-item" key={label}>
-                <div
-                  className={`step ${done ? "done" : ""} ${active ? "active" : ""}`}
-                  onClick={() => {
-                    if (n <= step) goTo(n);
-                  }}
-                >
-                  <div className="step-num">{done ? "✓" : n}</div>
-                  <div className="step-label">{label}</div>
-                </div>
-                {n < 4 && <div className={`step-connector ${done ? "done" : ""}`} />}
+              <div
+                key={label}
+                className={`step-pill ${active ? "active" : ""} ${done ? "done" : ""}`}
+                onClick={() => {
+                  if (n <= step) goTo(n);
+                }}
+              >
+                <span className="step-badge">{done ? "✓" : n}</span>
+                <span className="step-text">{label}</span>
               </div>
             );
           })}
@@ -283,10 +312,10 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                   <div className="switch-row">
                     <div className="switch-text">
                       <label className="field-label" style={{ marginBottom: 2 }}>
-                        Add a button with a link
+                        Add link buttons
                       </label>
                       <div className="hint" style={{ margin: 0 }}>
-                        Instead of a plain text link, it shows as a tappable button in the DM.
+                        Add up to 5 tappable link buttons inside the DM.
                       </div>
                     </div>
                     <button
@@ -296,29 +325,60 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                       aria-pressed={useButton}
                     />
                   </div>
+
                   {useButton && (
                     <div className="sub-field button-fields">
-                      <div className="field-group" style={{ marginBottom: 12 }}>
-                        <label className="field-label">Button text</label>
-                        <input
-                          type="text"
-                          className="field-input"
-                          placeholder="Get the link"
-                          maxLength={20}
-                          value={buttonTitle}
-                          onChange={(e) => setButtonTitle(e.target.value)}
-                        />
-                      </div>
-                      <div className="field-group" style={{ marginBottom: 0 }}>
-                        <label className="field-label">Link (where the button goes)</label>
-                        <input
-                          type="text"
-                          className="field-input"
-                          placeholder="https://your-link.com"
-                          value={buttonUrl}
-                          onChange={(e) => setButtonUrl(e.target.value)}
-                        />
-                      </div>
+                      {buttons.map((btn, index) => (
+                        <div key={index} className="button-card-row">
+                          <div className="btn-row-header">
+                            <span>Button #{index + 1}</span>
+                            {buttons.length > 1 && (
+                              <button
+                                type="button"
+                                className="remove-btn"
+                                onClick={() => handleRemoveButton(index)}
+                              >
+                                ✕ Delete
+                              </button>
+                            )}
+                          </div>
+                          <div className="field-group" style={{ marginBottom: 8 }}>
+                            <label className="field-label">Button text</label>
+                            <input
+                              type="text"
+                              className="field-input"
+                              placeholder="e.g. Shop Now"
+                              maxLength={20}
+                              value={btn.title}
+                              onChange={(e) =>
+                                handleButtonChange(index, "title", e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="field-group" style={{ marginBottom: 0 }}>
+                            <label className="field-label">Link URL</label>
+                            <input
+                              type="text"
+                              className="field-input"
+                              placeholder="https://your-link.com"
+                              value={btn.url}
+                              onChange={(e) =>
+                                handleButtonChange(index, "url", e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      {buttons.length < 5 && (
+                        <button
+                          type="button"
+                          className="btn-add-more"
+                          onClick={handleAddButton}
+                        >
+                          + Add another button ({buttons.length}/5)
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -388,8 +448,12 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                     <div className="review-num">✓</div>
                     <div className="review-text">
                       Final DM sent: <b>"{dmMessage.replace("{first_name}", previewName) || "(write your message in step 3)"}"</b>
-                      {useButton && buttonTitle && (
-                        <div className="chip-btn">🔗 {buttonTitle}</div>
+                      {useButton && buttons.length > 0 && (
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
+                          {buttons.map((b, i) => (
+                            <div key={i} className="chip-btn">🔗 {b.title || `Button ${i+1}`}</div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </li>
@@ -478,71 +542,51 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         .page-sub {
           color: #585466;
           font-size: 13px;
-          margin: 0 0 24px;
+          margin: 0 0 20px;
         }
-        .stepper {
-          display: flex;
-          align-items: center;
-          margin-bottom: 22px;
-        }
-        .stepper-item {
-          display: flex;
-          align-items: center;
-          flex: 1;
-        }
-        .stepper-item:last-child {
-          flex: 0;
-        }
-        .step {
+
+        /* --- Compact Stepper Bar CSS --- */
+        .stepper-bar {
           display: flex;
           align-items: center;
           gap: 8px;
+          margin-bottom: 22px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+        }
+        .step-pill {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          border: 2px solid #14121f;
+          border-radius: 30px;
+          background: #fff;
+          font-size: 13px;
+          font-weight: 700;
           cursor: pointer;
+          white-space: nowrap;
+          box-shadow: 2px 2px 0 #14121f;
+          transition: all 0.15s ease;
         }
-        .step-num {
-          width: 30px;
-          height: 30px;
-          border: 3px solid #14121f;
-          border-radius: 50%;
-          display: grid;
-          place-items: center;
-          font: 700 13px "DM Mono", monospace;
-          background: #fff8ed;
-          flex-shrink: 0;
-        }
-        .step.done .step-num {
-          background: #00d4b8;
-        }
-        .step.active .step-num {
+        .step-pill.active {
           background: #ffd23f;
           box-shadow: 4px 4px 0 #14121f;
         }
-        .step-label {
-          font: 600 12px inherit;
-          color: #b0aabb;
-          display: none;
-        }
-        .step.active .step-label,
-        .step.done .step-label {
-          color: #14121f;
-        }
-        @media (min-width: 480px) {
-          .step-label {
-            display: block;
-          }
-        }
-        .step-connector {
-          flex: 1;
-          height: 3px;
-          background: #14121f;
-          opacity: 0.15;
-          margin: 0 8px;
-          min-width: 12px;
-        }
-        .step-connector.done {
-          opacity: 1;
+        .step-pill.done {
           background: #00d4b8;
         }
+        .step-badge {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #14121f;
+          color: #fff;
+          display: grid;
+          place-items: center;
+          font: 700 11px "DM Mono", monospace;
+        }
+
         .form-error {
           background: #fff0f0;
           border: 2px solid #ff4fa3;
@@ -690,12 +734,55 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         .sub-field {
           margin: -4px 0 14px;
         }
+
+        /* --- Dynamic Buttons CSS --- */
         .button-fields {
           border: 2px dashed #14121f;
           border-radius: 10px;
           padding: 14px;
           margin-top: 10px;
+          background: #faf7f2;
         }
+        .button-card-row {
+          background: #fff;
+          border: 2px solid #14121f;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 12px;
+        }
+        .btn-row-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-weight: 700;
+          font-size: 12px;
+          margin-bottom: 8px;
+          color: #7c3aed;
+        }
+        .remove-btn {
+          background: none;
+          border: none;
+          color: #ff4fa3;
+          font-weight: 700;
+          font-size: 11px;
+          cursor: pointer;
+        }
+        .btn-add-more {
+          width: 100%;
+          padding: 10px;
+          border: 2px dashed #14121f;
+          border-radius: 8px;
+          background: #fff;
+          font-weight: 700;
+          font-size: 13px;
+          color: #14121f;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .btn-add-more:hover {
+          background: #ffd23f;
+        }
+
         .review-list {
           list-style: none;
           padding: 0;
@@ -740,10 +827,9 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           gap: 6px;
           background: #ffd23f;
           border: 2px solid #14121f;
-          padding: 3px 10px 3px 12px;
+          padding: 3px 10px;
           font: 700 11px "DM Mono", monospace;
           border-radius: 3px;
-          margin-top: 8px;
         }
         .card-footer {
           display: flex;
