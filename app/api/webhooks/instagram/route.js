@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../lib/supabase-server";
+import { createClient } from "@supabase/supabase-js";
+
+// Service Role Client (RLS bypass karke background webhooks ko DB access deta hai)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -13,7 +19,7 @@ export async function GET(request) {
   return new Response("Forbidden", { status: 403 });
 }
 
-// Helper: Instagram Graph API call to send DM
+// Helper: Meta Instagram Graph API Call
 async function callSendAPI(igAccountId, accessToken, recipient, message) {
   console.log("📤 Sending DM via Meta API...", { recipient, message });
   try {
@@ -38,7 +44,6 @@ async function sendFirstTextDM(igAccountId, accessToken, commentId, text) {
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
   const text = (automation.dm_message || "").replace(/\{first_name\}/g, firstName);
 
-  // Dynamic buttons check
   const buttonList = Array.isArray(automation.buttons) && automation.buttons.length > 0
     ? automation.buttons
     : (automation.button_title && automation.button_url 
@@ -77,7 +82,7 @@ async function sendFollowGateDM(igAccountId, accessToken, recipient, promptText)
 }
 
 async function checkIsFollower() {
-  return true; // Webhook limitation bypass for demo
+  return true;
 }
 
 export async function POST(request) {
@@ -85,7 +90,6 @@ export async function POST(request) {
     const body = await request.json();
     console.log("🚀 FULL WEBHOOK BODY RECEIVED:", JSON.stringify(body, null, 2));
 
-    const supabase = await createClient();
     const entries = body.entry || [];
 
     for (const entry of entries) {
@@ -110,7 +114,7 @@ export async function POST(request) {
 
         console.log("💬 Step 2: New Comment Detected:", { commentText, commenterId, commenterUsername, commentId });
 
-        // Query Database for Connected Account
+        // Query Database with Service Role (Bypasses RLS)
         const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
           .select("id, access_token, ig_user_id")
@@ -119,8 +123,6 @@ export async function POST(request) {
 
         if (accountErr || !account) {
           console.error("❌ Step 3 FAIL: Account not found in Database for ig_user_id:", igAccountId, "DB Error:", accountErr);
-          
-          // Debugging log: show all registered accounts
           const { data: allAccounts } = await supabase.from("instagram_accounts").select("id, ig_user_id");
           console.log("📋 Registered DB IG User IDs:", allAccounts);
           continue;
