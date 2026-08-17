@@ -1,18 +1,3 @@
-// This is the engine. Meta calls this URL whenever:
-//  - someone comments (change.field === "comments")
-//  - someone replies to a DM, including tapping a quick-reply button (entry.messaging)
-//
-// Flow:
-//   comment matches keyword
-//     -> reply publicly (optional)
-//     -> if automation requires a follow: send ONE DM with a
-//        "✅ I followed, unlock now" quick-reply button, STOP (wait for tap)
-//     -> else if automation collects email/phone: send collect_prompt, STOP (wait for reply)
-//     -> else: send the final message right away (as a button DM if button_title/button_url are set)
-//
-//   DM reply / button tap arrives
-//     -> if waiting on follow-check tap: verify (best effort) then send the final message
-//     -> if waiting on data (email/phone): save it, then send the final message
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase-server";
 
@@ -39,56 +24,40 @@ async function callSendAPI(igAccountId, accessToken, recipient, message) {
   return !data.error;
 }
 
-// Plain text DM to an existing thread (we already have their user id).
-async function sendTextDM(igAccountId, accessToken, recipientId, text) {
-  return callSendAPI(igAccountId, accessToken, { id: recipientId }, { text });
-}
-
-// Plain text DM triggered straight from a comment (no thread yet, use comment_id).
 async function sendFirstTextDM(igAccountId, accessToken, commentId, text) {
   return callSendAPI(igAccountId, accessToken, { comment_id: commentId }, { text });
 }
 
-// Button-template DM: message text + one tappable link button.
-async function sendButtonDM(igAccountId, accessToken, recipient, text, buttonTitle, buttonUrl) {
-  return callSendAPI(igAccountId, accessToken, recipient, {
-    attachment: {
-      type: "template",
-      payload: {
-        template_type: "button",
-        text,
-        buttons: [
-          {
-            type: "web_url",
-            url: buttonUrl,
-            title: buttonTitle.slice(0, 20),
-          },
-        ],
-      },
-    },
-  });
-}
-
-// Sends the automation's final message - as a button DM if a button is
-// configured, otherwise as plain text. Works for both "first DM from a
-// comment" (recipient = comment_id) and "reply in an existing thread"
-// (recipient = their user id).
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
   const text = automation.dm_message.replace(/\{first_name\}/g, firstName);
-  if (automation.button_title && automation.button_url) {
+
+  // Check for dynamic buttons array or legacy fallback
+  const buttonList = Array.isArray(automation.buttons) && automation.buttons.length > 0
+    ? automation.buttons
+    : (automation.button_title && automation.button_url 
+        ? [{ title: automation.button_title, url: automation.button_url }] 
+        : []);
+
+  if (buttonList.length > 0) {
+    // Meta Instagram API Button Template accepts up to 3 buttons per card natively
+    const payloadButtons = buttonList.slice(0, 3).map((b) => ({
+      type: "web_url",
+      url: b.url,
+      title: b.title.slice(0, 20),
+    }));
+
     return callSendAPI(igAccountId, accessToken, recipient, {
       attachment: {
         type: "template",
         payload: {
           template_type: "button",
           text,
-          buttons: [
-            { type: "web_url", url: automation.button_url, title: automation.button_title.slice(0, 20) },
-          ],
+          buttons: payloadButtons,
         },
       },
     });
   }
+
   return callSendAPI(igAccountId, accessToken, recipient, { text });
 }
 
@@ -102,9 +71,6 @@ async function sendFollowGateDM(igAccountId, accessToken, recipient, promptText)
 }
 
 async function checkIsFollower() {
-  // Instagram's Graph API does not currently expose a direct "does user X
-  // follow me" lookup for arbitrary users. Until Meta adds that, the
-  // button tap itself is treated as their confirmation.
   return true;
 }
 
@@ -193,7 +159,7 @@ export async function POST(request) {
           continue;
         }
 
-        // No gates - send the final message right away (button or plain text).
+        // No gates - send the final message right away
         const firstName = commenterUsername || "there";
         const dmSent = await sendFinalMessage(igAccountId, account.access_token, matched, recipient, firstName);
 
@@ -206,7 +172,7 @@ export async function POST(request) {
         });
       }
 
-      // --- Incoming DM replies (button taps + typed replies) ---
+      // --- Incoming DM replies ---
       for (const msg of messaging) {
         const senderId = msg.sender?.id;
         const text = msg.message?.text;
