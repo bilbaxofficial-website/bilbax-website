@@ -128,7 +128,7 @@ export async function POST(request) {
         // Database Lookup with Full Error Capture
         const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
-          .select("id, access_token, username, ig_user_id")
+          .select("id, access_token, ig_username, ig_user_id")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
 
@@ -141,7 +141,7 @@ export async function POST(request) {
           continue;
         }
         
-        console.log("✅ ACCOUNT FOUND IN DB:", account.username);
+        console.log("✅ ACCOUNT FOUND IN DB:", account.ig_username);
 
         const { data: automations, error: autoErr } = await supabase
           .from("automations")
@@ -206,7 +206,7 @@ export async function POST(request) {
 
         const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
-          .select("id, access_token, username")
+          .select("id, access_token, ig_username")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
 
@@ -235,7 +235,7 @@ export async function POST(request) {
         if (pending.status === "awaiting_first_click" && (textPayload === "FIRST_FOLLOW_CHECK" || textPayload.toLowerCase().includes("followed"))) {
           console.log("✅ FIRST GATE PASSED! Wait for 2 sec, sending Second Gate...");
           await supabase.from("conversation_state").update({ status: "awaiting_second_click", updated_at: new Date().toISOString() }).eq("id", pending.id);
-          await sendSecondProfileGate(igAccountId, account.access_token, recipient, account.username || "instagram");
+          await sendSecondProfileGate(igAccountId, account.access_token, recipient, account.ig_username || "instagram");
           continue;
         }
 
