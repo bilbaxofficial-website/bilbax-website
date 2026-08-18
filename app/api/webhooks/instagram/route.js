@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Supabase client initialize using service role key (bypasses RLS issues)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// GET Method: Meta Webhook Verification
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("hub.mode");
@@ -20,6 +22,7 @@ export async function GET(request) {
   return new Response("Forbidden", { status: 403 });
 }
 
+// Meta Graph API Message Helper
 async function callSendAPI(igAccountId, accessToken, recipient, message) {
   try {
     console.log("🚀 SENDING API CALL TO:", recipient.id || recipient.comment_id);
@@ -46,7 +49,6 @@ async function sendFirstFollowGate(igAccountId, accessToken, recipient, promptTe
   return callSendAPI(igAccountId, accessToken, recipient, {
     text: promptText || "Follow me first, then tap the button below!",
     quick_replies: [
-      // ⚠️ IMPORTANT: Max 20 characters allowed by Meta for title!
       { content_type: "text", title: "✅ Yes, I Followed", payload: "FIRST_FOLLOW_CHECK" },
     ],
   });
@@ -86,7 +88,7 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
     const payloadButtons = buttonList.slice(0, 3).map((b) => ({
       type: "web_url",
       url: b.url,
-      title: b.title.slice(0, 20),
+      title: String(b.title).slice(0, 20),
     }));
 
     return callSendAPI(igAccountId, accessToken, recipient, {
@@ -97,6 +99,7 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
   return callSendAPI(igAccountId, accessToken, recipient, { text });
 }
 
+// POST Method: Webhook Receiver
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -120,13 +123,18 @@ export async function POST(request) {
         const commentId = commentVal.id;
 
         console.log(`💬 COMMENT DETECTED: "${commentText}" from User IG_ID: ${commenterId}`);
-        console.log(`🔍 SEARCHING DB FOR ACCOUNT ID: ${igAccountId}`);
+        console.log(`🔍 SEARCHING DB FOR ACCOUNT ID: "${igAccountId}"`);
 
-        const { data: account } = await supabase
+        // Database Lookup with Full Error Capture
+        const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
           .select("id, access_token, username, ig_user_id")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
+
+        if (accountErr) {
+          console.error("❌ SUPABASE DB ERROR:", accountErr.message);
+        }
 
         if (!account) {
           console.log("🛑 STOP: ig_user_id database mein nahi mila!");
@@ -135,11 +143,13 @@ export async function POST(request) {
         
         console.log("✅ ACCOUNT FOUND IN DB:", account.username);
 
-        const { data: automations } = await supabase
+        const { data: automations, error: autoErr } = await supabase
           .from("automations")
           .select("*")
           .eq("ig_account_id", account.id)
           .eq("status", "active");
+
+        if (autoErr) console.error("❌ AUTOMATIONS DB ERROR:", autoErr.message);
 
         if (!automations || automations.length === 0) {
           console.log("🛑 STOP: Koi active automation nahi mili is account ke liye!");
@@ -160,7 +170,7 @@ export async function POST(request) {
         console.log("✅ AUTOMATION MATCHED:", matched.id);
 
         if (!commenterId) {
-           console.log("⚠️ WARNING: Commenter ka ID null hai. Shayad app me permissions kam hain.");
+           console.log("⚠️ WARNING: Commenter ka ID null hai. App me permissions check karein.");
            continue;
         }
 
@@ -194,12 +204,13 @@ export async function POST(request) {
         if (!senderId) continue;
         console.log(`📩 INBOX EVENT: Sender=${senderId} | Payload/Text=${textPayload}`);
 
-        const { data: account } = await supabase
+        const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
           .select("id, access_token, username")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
 
+        if (accountErr) console.error("❌ SUPABASE DM DB ERROR:", accountErr.message);
         if (!account) continue;
 
         const { data: pending } = await supabase
