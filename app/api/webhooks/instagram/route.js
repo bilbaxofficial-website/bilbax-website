@@ -74,6 +74,13 @@ async function sendSecondProfileGate(igAccountId, accessToken, recipient, creato
   });
 }
 
+// STEP: Ask for email/phone (plain text DM, waits for a typed reply)
+async function sendCollectPrompt(igAccountId, accessToken, recipient, promptText, fieldName) {
+  return callSendAPI(igAccountId, accessToken, recipient, {
+    text: promptText || `What's the best ${fieldName || "email"} to send this to?`,
+  });
+}
+
 // STEP 3: Final Link Delivery
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
   const text = (automation.dm_message || "Here is your link!").replace(/\{first_name\}/g, firstName);
@@ -97,6 +104,28 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
   }
 
   return callSendAPI(igAccountId, accessToken, recipient, { text });
+}
+
+// Decides what the very next step should be, right after a comment matches
+// or right after a gate (follow / collect) has just been cleared.
+// Returns the status string to save, or null if nothing left to do (send final message).
+function nextPendingStatus(automation, justCleared) {
+  const needsFollow = !!automation.require_follow;
+  const needsCollect = !!automation.collect_field;
+
+  if (justCleared === "none") {
+    if (needsFollow) return "awaiting_first_click";
+    if (needsCollect) return "awaiting_data";
+    return null;
+  }
+  if (justCleared === "follow") {
+    if (needsCollect) return "awaiting_data";
+    return null;
+  }
+  if (justCleared === "data") {
+    return null;
+  }
+  return null;
 }
 
 // POST Method: Webhook Receiver
@@ -175,8 +204,10 @@ export async function POST(request) {
         }
 
         const recipient = { comment_id: commentId };
+        const firstStatus = nextPendingStatus(matched, "none");
 
-        if (matched.require_follow) {
+        // Case A: needs follow first (regardless of collect - follow always comes first)
+        if (firstStatus === "awaiting_first_click") {
           console.log("🔄 FLOW: Require Follow ENABLED, Sending First Gate...");
           const sent = await sendFirstFollowGate(igAccountId, account.access_token, recipient, matched.follow_prompt);
           if (sent) {
@@ -192,14 +223,33 @@ export async function POST(request) {
           continue;
         }
 
-        console.log("🔄 FLOW: Direct send link (Follow not required)...");
+        // Case B: no follow gate, but needs email/phone collection
+        if (firstStatus === "awaiting_data") {
+          console.log("🔄 FLOW: Collect field ENABLED (no follow gate), asking for", matched.collect_field);
+          const sent = await sendCollectPrompt(igAccountId, account.access_token, recipient, matched.collect_prompt, matched.collect_field);
+          if (sent) {
+            await supabase.from("conversation_state").insert({
+              automation_id: matched.id,
+              ig_account_id: account.id,
+              commenter_ig_id: commenterId,
+              commenter_username: commenterUsername,
+              status: "awaiting_data",
+            });
+            console.log("✅ DB STATE UPDATED: awaiting_data");
+          }
+          continue;
+        }
+
+        // Case C: no gates at all - send the final message right away.
+        console.log("🔄 FLOW: Direct send link (no gates)...");
         await sendFinalMessage(igAccountId, account.access_token, matched, recipient, commenterUsername || "there");
       }
 
       // ------------- 2. DM / BUTTON CLICKS PROCESSOR -------------
       for (const msg of messaging) {
         const senderId = msg.sender?.id;
-        const textPayload = msg.message?.quick_reply?.payload || msg.postback?.payload || (msg.message?.text || "").trim();
+        const rawText = (msg.message?.text || "").trim();
+        const textPayload = msg.message?.quick_reply?.payload || msg.postback?.payload || rawText;
         
         if (!senderId) continue;
         console.log(`📩 INBOX EVENT: Sender=${senderId} | Payload/Text=${textPayload}`);
@@ -218,7 +268,7 @@ export async function POST(request) {
           .select("*, automations(*)")
           .eq("ig_account_id", account.id)
           .eq("commenter_ig_id", senderId)
-          .in("status", ["awaiting_first_click", "awaiting_second_click"])
+          .in("status", ["awaiting_first_click", "awaiting_second_click", "awaiting_data"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -231,7 +281,7 @@ export async function POST(request) {
         const automation = pending.automations;
         const recipient = { id: senderId };
 
-        // FIRST GATE CLICKED
+        // FIRST GATE CLICKED (they said they followed)
         if (pending.status === "awaiting_first_click" && (textPayload === "FIRST_FOLLOW_CHECK" || textPayload.toLowerCase().includes("followed"))) {
           console.log("✅ FIRST GATE PASSED! Wait for 2 sec, sending Second Gate...");
           await supabase.from("conversation_state").update({ status: "awaiting_second_click", updated_at: new Date().toISOString() }).eq("id", pending.id);
@@ -239,11 +289,41 @@ export async function POST(request) {
           continue;
         }
 
-        // SECOND GATE CLICKED
+        // SECOND GATE CLICKED (they confirmed the follow)
         if (pending.status === "awaiting_second_click" && (textPayload === "SECOND_FOLLOW_CONFIRMED" || textPayload.toLowerCase().includes("yes"))) {
-           console.log("✅ SECOND GATE PASSED! Sending Final Link...");
-           await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
-           await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
+           console.log("✅ SECOND GATE PASSED!");
+           const afterFollow = nextPendingStatus(automation, "follow");
+
+           if (afterFollow === "awaiting_data") {
+             console.log("🔄 Now asking for", automation.collect_field);
+             await supabase.from("conversation_state").update({ status: "awaiting_data", updated_at: new Date().toISOString() }).eq("id", pending.id);
+             await sendCollectPrompt(igAccountId, account.access_token, recipient, automation.collect_prompt, automation.collect_field);
+           } else {
+             console.log("✅ No more gates, sending Final Link...");
+             await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
+             await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
+           }
+           continue;
+        }
+
+        // DATA COLLECTION REPLY (they typed their email/phone)
+        if (pending.status === "awaiting_data" && rawText) {
+          console.log("✅ DATA COLLECTED:", rawText, "-> sending Final Link...");
+          await supabase
+            .from("conversation_state")
+            .update({ status: "completed", collected_value: rawText, updated_at: new Date().toISOString() })
+            .eq("id", pending.id);
+
+          await supabase.from("message_logs").insert({
+            automation_id: automation.id,
+            commenter_ig_id: senderId,
+            commenter_username: pending.commenter_username,
+            matched_keyword: "data_collected",
+            dm_sent: true,
+            collected_value: rawText,
+          });
+
+          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
         }
       }
     }
