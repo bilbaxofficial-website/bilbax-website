@@ -27,6 +27,10 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
   const [collectField, setCollectField] = useState("none"); // "none" | "email" | "phone"
   const [collectPrompt, setCollectPrompt] = useState("What's the best email to send this to?");
 
+  // Step 2b: follow-up reminders (only relevant if a gate is set - otherwise
+  // there's nothing to wait on a reply for)
+  const [followups, setFollowups] = useState([]); // [{ after_minutes, message }]
+
   // Step 3: message
   const [dmMessage, setDmMessage] = useState("");
   const [commentReply, setCommentReply] = useState("Sent you a DM! 📩");
@@ -74,6 +78,11 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         ? ["*"]
         : keywords.split(",").map((k) => k.trim()).filter(Boolean);
 
+    // Only keep follow-ups that have both a valid wait time and a message.
+    const cleanedFollowups = followups
+      .filter((f) => f.after_minutes > 0 && f.message && f.message.trim())
+      .map((f) => ({ after_minutes: f.after_minutes, message: f.message.trim() }));
+
     const { data: { user } } = await supabase.auth.getUser();
 
     const { error: insertError } = await supabase.from("automations").insert({
@@ -91,6 +100,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
       collect_prompt: collectField === "none" ? null : collectPrompt,
       button_title: useButton ? buttonTitle.trim() : null,
       button_url: useButton ? buttonUrl.trim() : null,
+      followups: cleanedFollowups,
     });
 
     setSaving(false);
@@ -293,6 +303,103 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                     />
                   </div>
                 )}
+
+                {(requireFollow || collectField !== "none") && (
+                  <div className="field-group">
+                    <label className="field-label">Follow-up if they don't reply</label>
+                    <p className="hint" style={{ marginTop: 0, marginBottom: 12 }}>
+                      Nudge people who saw the gate but never replied. Add as many as you want.
+                    </p>
+
+                    {followups.map((f, i) => (
+                      <div className="followup-row" key={i}>
+                        <div className="followup-row-header">
+                          <span className="followup-badge">Follow-up #{i + 1}</span>
+                          <button
+                            type="button"
+                            className="followup-remove"
+                            onClick={() => setFollowups(followups.filter((_, idx) => idx !== i))}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <div className="followup-fields">
+                          <div>
+                            <label className="field-label" style={{ fontSize: 11 }}>
+                              Wait time
+                            </label>
+                            <div className="followup-time-row">
+                              <input
+                                type="number"
+                                min="1"
+                                className="field-input followup-time-input"
+                                value={f.displayValue ?? f.after_minutes}
+                                onChange={(e) => {
+                                  const updated = [...followups];
+                                  const raw = Number(e.target.value) || 0;
+                                  updated[i] = {
+                                    ...updated[i],
+                                    displayValue: e.target.value,
+                                    after_minutes: raw * (updated[i].unit === "hours" ? 60 : 1),
+                                  };
+                                  setFollowups(updated);
+                                }}
+                              />
+                              <select
+                                className="followup-unit-select"
+                                value={f.unit || "minutes"}
+                                onChange={(e) => {
+                                  const updated = [...followups];
+                                  const unit = e.target.value;
+                                  const raw = Number(updated[i].displayValue ?? updated[i].after_minutes) || 0;
+                                  updated[i] = {
+                                    ...updated[i],
+                                    unit,
+                                    after_minutes: raw * (unit === "hours" ? 60 : 1),
+                                  };
+                                  setFollowups(updated);
+                                }}
+                              >
+                                <option value="minutes">minutes</option>
+                                <option value="hours">hours</option>
+                              </select>
+                              <span className="followup-time-suffix">after the gate is sent</span>
+                            </div>
+                          </div>
+                          <div style={{ marginTop: 10 }}>
+                            <label className="field-label" style={{ fontSize: 11 }}>
+                              Message
+                            </label>
+                            <input
+                              type="text"
+                              className="field-input"
+                              placeholder="Still there? Don't miss out 👋"
+                              value={f.message || ""}
+                              onChange={(e) => {
+                                const updated = [...followups];
+                                updated[i] = { ...updated[i], message: e.target.value };
+                                setFollowups(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      className="add-followup-btn"
+                      onClick={() =>
+                        setFollowups([
+                          ...followups,
+                          { after_minutes: 60, unit: "hours", displayValue: "1", message: "" },
+                        ])
+                      }
+                    >
+                      + Add a follow-up
+                    </button>
+                  </div>
+                )}
               </>
             )}
 
@@ -445,6 +552,17 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                       )}
                     </div>
                   </li>
+
+                  {followups
+                    .filter((f) => f.after_minutes > 0 && f.message?.trim())
+                    .map((f, i) => (
+                      <li className="review-item" key={i}>
+                        <div className="review-num">⏰</div>
+                        <div className="review-text">
+                          If no reply after <b>{f.unit === "hours" ? f.after_minutes / 60 : f.after_minutes} {f.unit || "minutes"}</b>: <b>"{f.message}"</b>
+                        </div>
+                      </li>
+                    ))}
                 </ol>
               </>
             )}
@@ -747,6 +865,70 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           border-radius: 10px;
           padding: 14px;
           margin-top: 10px;
+        }
+        .followup-row {
+          border: 2px solid #14121f;
+          border-radius: 10px;
+          padding: 12px 14px;
+          margin-bottom: 12px;
+          background: #f5f0ff;
+        }
+        .followup-row-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
+        }
+        .followup-badge {
+          font: 700 11px "DM Mono", monospace;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #7c3aed;
+        }
+        .followup-remove {
+          border: none;
+          background: none;
+          color: #ff4fa3;
+          font-weight: 700;
+          font-size: 12px;
+          cursor: pointer;
+          padding: 0;
+        }
+        .followup-time-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .followup-time-input {
+          width: 70px;
+          flex: none;
+        }
+        .followup-unit-select {
+          border: 3px solid #14121f;
+          border-radius: 8px;
+          padding: 10px 8px;
+          font: 700 13px inherit;
+          background: #fff8ed;
+          color: #14121f;
+        }
+        .followup-time-suffix {
+          font-size: 12px;
+          color: #8a8496;
+        }
+        .add-followup-btn {
+          width: 100%;
+          border: 2px dashed #14121f;
+          border-radius: 10px;
+          padding: 12px;
+          background: transparent;
+          color: #7c3aed;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .add-followup-btn:hover {
+          background: #f5f0ff;
         }
         .review-list {
           list-style: none;
