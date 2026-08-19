@@ -192,9 +192,14 @@ export async function POST(request) {
       const changes = entry.changes || [];
       const messaging = entry.messaging || [];
 
-      // ------------- 1. COMMENTS PROCESSOR -------------
+      // ------------- 1. COMMENTS PROCESSOR (posts/reels AND live videos) -------------
       for (const change of changes) {
-        if (change.field !== "comments") continue;
+        if (change.field !== "comments" && change.field !== "live_comments") continue;
+
+        // Meta sends live-video comments on a separate field, but with the
+        // exact same value shape as regular comments (from, media, text, id).
+        const isLive = change.field === "live_comments";
+        const dbTriggerType = isLive ? "live_comment" : "comment";
         
         const commentVal = change.value || {};
         const commentText = (commentVal.text || "").trim();
@@ -202,7 +207,7 @@ export async function POST(request) {
         const commenterUsername = commentVal.from?.username;
         const commentId = commentVal.id;
 
-        console.log(`💬 COMMENT DETECTED: "${commentText}" from User IG_ID: ${commenterId}`);
+        console.log(`💬 ${isLive ? "LIVE " : ""}COMMENT DETECTED: "${commentText}" from User IG_ID: ${commenterId}`);
         console.log(`🔍 SEARCHING DB FOR ACCOUNT ID: "${igAccountId}"`);
 
         const { data: account, error: accountErr } = await supabase
@@ -225,12 +230,12 @@ export async function POST(request) {
           .select("*")
           .eq("ig_account_id", account.id)
           .eq("status", "active")
-          .eq("trigger_type", "comment"); // only comment automations here
+          .eq("trigger_type", dbTriggerType);
 
         if (autoErr) console.error("❌ AUTOMATIONS DB ERROR:", autoErr.message);
 
         if (!automations || automations.length === 0) {
-          console.log("🛑 STOP: Koi active comment automation nahi mili is account ke liye!");
+          console.log(`🛑 STOP: Koi active ${dbTriggerType} automation nahi mili is account ke liye!`);
           continue;
         }
 
