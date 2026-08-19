@@ -169,6 +169,13 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                     >
                       📖 Story replies
                     </button>
+                    <button
+                      type="button"
+                      className={`pill ${eventType === "live_comment" ? "selected" : ""}`}
+                      onClick={() => setEventType("live_comment")}
+                    >
+                      🔴 Live comments
+                    </button>
                   </div>
                 </div>
 
@@ -180,7 +187,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                       className={`pill ${triggerType === "any" ? "selected" : ""}`}
                       onClick={() => setTriggerType("any")}
                     >
-                      {eventType === "comment" ? "Any comment" : "Any reply"}
+                      {eventType === "comment" ? "Any comment" : eventType === "story_reply" ? "Any reply" : "Any live comment"}
                     </button>
                     <button
                       type="button"
@@ -205,6 +212,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                     <p className="hint">
                       Separate multiple keywords with commas. Not case-sensitive.
                       {eventType === "story_reply" && " Matched against the text someone types when replying to your story."}
+                      {eventType === "live_comment" && " Matched against comments posted while you're live."}
                     </p>
                   </div>
                 )}
@@ -376,17 +384,25 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                   <li className="review-item">
                     <div className="review-num">1</div>
                     <div className="review-text">
-                      {eventType === "comment" ? (
+                      {eventType === "comment" && (
                         triggerType === "keyword" ? (
                           <>Someone comments <span className="chip-kw">{keywords || "your keyword"}</span></>
                         ) : (
                           "Someone comments anything on this post"
                         )
-                      ) : (
+                      )}
+                      {eventType === "story_reply" && (
                         triggerType === "keyword" ? (
                           <>Someone replies to your story with <span className="chip-kw">{keywords || "your keyword"}</span></>
                         ) : (
                           "Someone replies to your story with anything"
+                        )
+                      )}
+                      {eventType === "live_comment" && (
+                        triggerType === "keyword" ? (
+                          <>Someone comments <span className="chip-kw">{keywords || "your keyword"}</span> during your Live</>
+                        ) : (
+                          "Someone comments anything during your Live"
                         )
                       )}
                     </div>
