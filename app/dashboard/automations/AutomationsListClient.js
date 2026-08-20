@@ -4,7 +4,7 @@ import { createClient } from "../../../lib/supabase-client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function AutomationsListClient({ automations: initialAutomations }) {
+export default function AutomationsListClient({ automations: initialAutomations, igAccountId, igUsername }) {
   const router = useRouter();
   const supabase = createClient();
   const [automations, setAutomations] = useState(initialAutomations);
@@ -23,17 +23,22 @@ export default function AutomationsListClient({ automations: initialAutomations 
     setAutomations((prev) => prev.filter((a) => a.id !== id));
   }
 
+  const newAutomationHref = `/dashboard/automations/new?account=${igAccountId}`;
+
   return (
     <div className="page-shell">
       <header className="page-header">
         <a href="/" className="page-logo">bilbax</a>
-        <a href="/dashboard" className="back-link">← Back to dashboard</a>
+        <a href={`/dashboard?account=${igAccountId}`} className="back-link">← Back to dashboard</a>
       </header>
 
       <main className="page-main">
         <div className="list-header">
-          <h1>Your automations</h1>
-          <a href="/dashboard/automations/new" className="new-btn">+ New</a>
+          <div>
+            <h1>Your automations</h1>
+            {igUsername && <p className="list-subhead">for @{igUsername}</p>}
+          </div>
+          <a href={newAutomationHref} className="new-btn">+ New</a>
         </div>
 
         {automations.length === 0 ? (
@@ -41,7 +46,7 @@ export default function AutomationsListClient({ automations: initialAutomations 
             <div className="empty-icon">+</div>
             <h2>No automations yet</h2>
             <p>Create your first one to start turning comments into DMs.</p>
-            <a href="/dashboard/automations/new" className="empty-btn">Create automation</a>
+            <a href={newAutomationHref} className="empty-btn">Create automation</a>
           </div>
         ) : (
           <div className="automation-list">
@@ -118,6 +123,11 @@ export default function AutomationsListClient({ automations: initialAutomations 
           font-weight: 800;
           color: #14121f;
           margin: 0;
+        }
+        .list-subhead {
+          font-size: 13px;
+          color: #8a8496;
+          margin: 4px 0 0;
         }
         .new-btn {
           background: linear-gradient(135deg, #ff4fa3, #7c3aed);
