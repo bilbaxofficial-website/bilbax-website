@@ -35,7 +35,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
   const [savingWelcome, setSavingWelcome] = useState(false);
   const [welcomeSavedMsg, setWelcomeSavedMsg] = useState("");
   
-  // UI Mode: whether user is currently editing the welcome message
+  // Accordion state: whether the edit form is open or minimized
   const [isEditingWelcome, setIsEditingWelcome] = useState(false);
 
   // Sync welcome state when selected account changes
@@ -47,8 +47,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
       setWelcomeBtnTitle(selectedAccount.welcome_button_title || "");
       setWelcomeBtnUrl(selectedAccount.welcome_button_url || "");
       setWelcomeSavedMsg("");
-      // If message is already saved/enabled, default to view mode (not editing)
-      setIsEditingWelcome(!isEnabled && !selectedAccount.welcome_message);
+      setIsEditingWelcome(false); // Always keep minimized when switching accounts
     }
   }, [selectedId, selectedAccount]);
 
@@ -72,8 +71,8 @@ export default function DashboardClient({ user, igAccounts = [] }) {
     if (error) {
       alert("Error saving welcome settings: " + error.message);
     } else {
-      setWelcomeSavedMsg("Saved successfully! ✅");
-      setIsEditingWelcome(false); // Close edit mode and go back to clean view card
+      setWelcomeSavedMsg("Saved! ✅");
+      setIsEditingWelcome(false); // Automatically minimize/close form on successful save!
       setTimeout(() => setWelcomeSavedMsg(""), 3000);
       router.refresh();
     }
@@ -206,47 +205,45 @@ export default function DashboardClient({ user, igAccounts = [] }) {
               </div>
             )}
 
-            {/* WELCOME MESSAGE CARD SECTION */}
+            {/* ULTRA-CLEAN PROFESSIONAL WELCOME MESSAGE CARD */}
             <div className="welcome-card">
-              <div className="welcome-header">
-                <div className="welcome-title-group">
-                  <h3>👋 Welcome Message</h3>
-                  <p>Automatically reply to first-time DMs for @{selectedAccount.ig_username}.</p>
-                </div>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={welcomeEnabled}
-                    onChange={(e) => handleToggleWelcomeQuick(e.target.checked)}
-                  />
-                  <span className="slider round"></span>
-                </label>
-              </div>
-
-              {welcomeSavedMsg && <div className="saved-alert">{welcomeSavedMsg}</div>}
-
-              {/* VIEW MODE (When not editing and message exists) */}
-              {!isEditingWelcome && welcomeMessage ? (
-                <div className="welcome-preview-box">
-                  <div className="preview-content">
-                    <span className="preview-badge">{welcomeEnabled ? "🟢 Active" : "⚪ Paused"}</span>
-                    <p className="preview-text">"{welcomeMessage}"</p>
-                    {welcomeBtnTitle && (
-                      <div className="preview-btn-pill">
-                        🔗 {welcomeBtnTitle} ({welcomeBtnUrl || "No URL"})
-                      </div>
-                    )}
+              <div className="welcome-main-row">
+                <div className="welcome-meta">
+                  <div className="welcome-title-flex">
+                    <h3>👋 Welcome Message</h3>
+                    <span className={`status-badge ${welcomeEnabled ? 'active' : 'paused'}`}>
+                      {welcomeEnabled ? 'Active' : 'Paused'}
+                    </span>
+                    {welcomeSavedMsg && <span className="inline-saved">{welcomeSavedMsg}</span>}
                   </div>
-                  <button 
-                    onClick={() => setIsEditingWelcome(true)} 
-                    className="edit-welcome-btn"
+                  <p className="welcome-preview-text">
+                    {welcomeMessage ? `"${welcomeMessage}"` : "No message configured yet. Click edit to set one up."}
+                  </p>
+                </div>
+
+                <div className="welcome-controls">
+                  <label className="switch" title="Enable/Disable">
+                    <input
+                      type="checkbox"
+                      checked={welcomeEnabled}
+                      onChange={(e) => handleToggleWelcomeQuick(e.target.checked)}
+                    />
+                    <span className="slider round"></span>
+                  </label>
+
+                  <button
+                    type="button"
+                    className="action-edit-btn"
+                    onClick={() => setIsEditingWelcome(!isEditingWelcome)}
                   >
-                    ✏️ Edit Message
+                    {isEditingWelcome ? "Close ✕" : "Edit ⚙️"}
                   </button>
                 </div>
-              ) : (
-                /* EDIT / SETUP FORM MODE */
-                <form onSubmit={handleSaveWelcome} className="welcome-form">
+              </div>
+
+              {/* EXPANDABLE FORM (Only opens when user clicks Edit) */}
+              {isEditingWelcome && (
+                <form onSubmit={handleSaveWelcome} className="welcome-edit-form">
                   <div className="form-group">
                     <label>Welcome Message Text</label>
                     <textarea
@@ -280,19 +277,17 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                     </div>
                   </div>
 
-                  <div className="welcome-actions">
-                    <button type="submit" disabled={savingWelcome} className="save-welcome-btn">
-                      {savingWelcome ? "Saving..." : "Save Welcome Message"}
+                  <div className="form-actions-bar">
+                    <button type="submit" disabled={savingWelcome} className="save-btn-pro">
+                      {savingWelcome ? "Saving..." : "Save & Minimize 💾"}
                     </button>
-                    {welcomeMessage && (
-                      <button 
-                        type="button" 
-                        onClick={() => setIsEditingWelcome(false)} 
-                        className="cancel-btn"
-                      >
-                        Cancel
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingWelcome(false)}
+                      className="cancel-btn-pro"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </form>
               )}
@@ -578,38 +573,93 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           margin-top: 14px;
         }
 
-        /* WELCOME CARD STYLES */
+        /* WELCOME CARD STYLES - COMPACT & PROFESSIONAL */
         .welcome-card {
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 24px;
-          padding: 28px;
-          box-shadow: 8px 8px 0 #7c3aed;
-          margin-top: 28px;
+          border-radius: 20px;
+          padding: 20px 24px;
+          box-shadow: 6px 6px 0 #7c3aed;
+          margin-top: 24px;
         }
-        .welcome-header {
+        .welcome-main-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          gap: 15px;
+          gap: 16px;
         }
-        .welcome-title-group h3 {
-          font-size: 18px;
+        .welcome-meta {
+          flex: 1;
+          min-width: 0;
+        }
+        .welcome-title-flex {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          flex-wrap: wrap;
+        }
+        .welcome-title-flex h3 {
+          font-size: 16px;
           font-weight: 800;
           color: #14121f;
-          margin: 0 0 4px;
-        }
-        .welcome-title-group p {
-          font-size: 13px;
-          color: #666;
           margin: 0;
         }
+        .status-badge {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 2px 8px;
+          border-radius: 6px;
+          border: 1px solid #14121f;
+        }
+        .status-badge.active {
+          background: #00d4b8;
+          color: #14121f;
+        }
+        .status-badge.paused {
+          background: #eee;
+          color: #666;
+        }
+        .inline-saved {
+          font-size: 11px;
+          font-weight: 700;
+          color: #00a88f;
+        }
+        .welcome-preview-text {
+          font-size: 13px;
+          color: #555;
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .welcome-controls {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+        .action-edit-btn {
+          background: #14121f;
+          color: #fff8ed;
+          border: 2px solid #14121f;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-weight: 700;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .action-edit-btn:hover {
+          background: #7c3aed;
+        }
+
+        /* Toggle Switch */
         .switch {
           position: relative;
           display: inline-block;
-          width: 50px;
-          height: 28px;
-          flex-shrink: 0;
+          width: 44px;
+          height: 24px;
         }
         .switch input {
           opacity: 0;
@@ -623,13 +673,13 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background-color: #ccc;
           transition: .3s;
           border: 2px solid #14121f;
-          border-radius: 34px;
+          border-radius: 24px;
         }
         .slider:before {
           position: absolute;
           content: "";
-          height: 18px;
-          width: 18px;
+          height: 14px;
+          width: 14px;
           left: 3px;
           bottom: 3px;
           background-color: white;
@@ -640,117 +690,66 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background-color: #00d4b8;
         }
         input:checked + .slider:before {
-          transform: translateX(22px);
+          transform: translateX(18px);
         }
-        .saved-alert {
-          margin-top: 12px;
-          background: #e6f9f6;
-          border: 1.5px solid #00d4b8;
-          color: #007a68;
-          padding: 8px 12px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 700;
-        }
-        .welcome-preview-box {
-          margin-top: 16px;
-          background: #fff8ed;
-          border: 2px solid #14121f;
-          border-radius: 14px;
-          padding: 16px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .preview-badge {
-          display: inline-block;
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          margin-bottom: 6px;
-        }
-        .preview-text {
-          font-size: 14px;
-          color: #14121f;
-          margin: 0 0 6px;
-          font-weight: 600;
-        }
-        .preview-btn-pill {
-          display: inline-block;
-          font-size: 11px;
-          background: #fff;
-          border: 1px solid #14121f;
-          padding: 3px 8px;
-          border-radius: 6px;
-          color: #7c3aed;
-          font-weight: 700;
-        }
-        .edit-welcome-btn {
-          background: #14121f;
-          color: #fff8ed;
-          border: 2px solid #14121f;
-          padding: 8px 14px;
-          border-radius: 10px;
-          font-weight: 800;
-          font-size: 12px;
-          cursor: pointer;
-        }
-        .welcome-form {
-          margin-top: 20px;
-          border-top: 2px dashed #ddd;
+
+        /* EXPANDABLE EDIT FORM */
+        .welcome-edit-form {
+          margin-top: 18px;
+          border-top: 2px dashed #e2ded0;
           padding-top: 16px;
         }
         .form-group {
-          margin-bottom: 14px;
+          margin-bottom: 12px;
         }
         .form-group label {
           display: block;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 800;
           color: #14121f;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
+          text-transform: uppercase;
         }
         .form-group textarea,
         .form-group input {
           width: 100%;
-          padding: 12px;
+          padding: 10px 12px;
           border: 2px solid #14121f;
-          border-radius: 12px;
-          font-size: 14px;
+          border-radius: 10px;
+          font-size: 13px;
           background: #fff8ed;
           outline: none;
         }
         .form-row {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 12px;
+          gap: 10px;
         }
-        .welcome-actions {
+        .form-actions-bar {
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-top: 16px;
+          gap: 8px;
+          margin-top: 14px;
         }
-        .save-welcome-btn {
-          background: #14121f;
-          color: #fff8ed;
+        .save-btn-pro {
+          background: #00d4b8;
+          color: #14121f;
           border: 2px solid #14121f;
-          padding: 10px 20px;
-          border-radius: 10px;
+          padding: 8px 16px;
+          border-radius: 8px;
           font-weight: 800;
-          font-size: 13px;
+          font-size: 12px;
           cursor: pointer;
+          box-shadow: 2px 2px 0 #14121f;
         }
-        .cancel-btn {
+        .cancel-btn-pro {
           background: transparent;
           color: #14121f;
           border: 2px solid #14121f;
-          padding: 10px 16px;
-          border-radius: 10px;
+          padding: 8px 12px;
+          border-radius: 8px;
           font-weight: 800;
-          font-size: 13px;
+          font-size: 12px;
           cursor: pointer;
         }
 
