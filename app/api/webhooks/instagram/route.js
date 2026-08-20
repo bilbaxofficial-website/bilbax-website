@@ -106,6 +106,32 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
   return callSendAPI(igAccountId, accessToken, recipient, { text });
 }
 
+// WELCOME MESSAGE: simple text + optional single button, no gates, no follow-ups.
+async function sendWelcomeMessage(igAccountId, accessToken, recipient, account) {
+  const text = account.welcome_message || "Hey! Thanks for reaching out 👋";
+
+  if (account.welcome_button_title && account.welcome_button_url) {
+    return callSendAPI(igAccountId, accessToken, recipient, {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "button",
+          text,
+          buttons: [
+            {
+              type: "web_url",
+              url: account.welcome_button_url,
+              title: String(account.welcome_button_title).slice(0, 20),
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  return callSendAPI(igAccountId, accessToken, recipient, { text });
+}
+
 // Decides what the very next step should be, right after a trigger matches
 // (comment or story reply) or right after a gate (follow / collect) has
 // just been cleared. Returns the status string to save, or null if
@@ -269,6 +295,13 @@ export async function POST(request) {
 
       // ------------- 2. DM / STORY REPLY / BUTTON CLICKS PROCESSOR -------------
       for (const msg of messaging) {
+        // Echo filter to prevent infinite loops from our own bot messages
+        const isEcho = msg.message?.is_echo;
+        if (isEcho) {
+          console.log("🔇 IGNORED ECHO MESSAGE");
+          continue;
+        }
+
         const senderId = msg.sender?.id;
         const rawText = (msg.message?.text || "").trim();
         const textPayload = msg.message?.quick_reply?.payload || msg.postback?.payload || rawText;
@@ -279,7 +312,7 @@ export async function POST(request) {
 
         const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
-          .select("id, access_token, ig_username")
+          .select("id, access_token, ig_username, welcome_enabled, welcome_message, welcome_button_title, welcome_button_url")
           .eq("ig_user_id", igAccountId)
           .maybeSingle();
 
@@ -335,6 +368,28 @@ export async function POST(request) {
             console.log("🛑 STOP: Koi active story_reply automation nahi mili is account ke liye!");
           }
           continue;
+        }
+
+        // --- Case: plain DM (not a story reply), not mid-flow - check for Welcome Message ---
+        if (!isStoryReply && !pending && rawText && account.welcome_enabled) {
+          const { data: alreadyWelcomed } = await supabase
+            .from("welcomed_senders")
+            .select("id")
+            .eq("ig_account_id", account.id)
+            .eq("sender_ig_id", senderId)
+            .maybeSingle();
+
+          if (!alreadyWelcomed) {
+            console.log("👋 NEW SENDER - sending Welcome Message...");
+            const sent = await sendWelcomeMessage(igAccountId, account.access_token, { id: senderId }, account);
+            if (sent) {
+              await supabase.from("welcomed_senders").insert({
+                ig_account_id: account.id,
+                sender_ig_id: senderId,
+              });
+            }
+            continue;
+          }
         }
 
         // --- Case: no pending gate and not a story reply - nothing to do ---
