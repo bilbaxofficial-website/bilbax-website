@@ -2,7 +2,7 @@
 
 import { createClient } from "../../lib/supabase-client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const MAX_ACCOUNTS_PER_USER = 5;
 
@@ -12,106 +12,56 @@ const ERROR_MESSAGES = {
   already_connected: "That Instagram account is already connected to a different Bilbax account.",
 };
 
+// props:
+//   user           - the logged-in Bilbax user
+//   igAccounts     - array of ALL Instagram accounts connected to this user (can be empty)
 export default function DashboardClient({ user, igAccounts = [] }) {
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const igError = searchParams.get("ig_error");
 
+  // Which connected account is currently "active" in the dashboard view.
+  // Defaults to the ?account=<id> URL param if present (e.g. coming back
+  // from the automations list), otherwise the first connected account.
   const accountFromUrl = searchParams.get("account");
   const initialSelectedId =
     (accountFromUrl && igAccounts.some((a) => a.id === accountFromUrl))
       ? accountFromUrl
       : igAccounts[0]?.id || null;
-      
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const selectedAccount = igAccounts.find((a) => a.id === selectedId) || igAccounts[0] || null;
 
-  // Local state for Welcome Message
-  const [welcomeEnabled, setWelcomeEnabled] = useState(false);
-  const [welcomeMessage, setWelcomeMessage] = useState("");
-  const [welcomeBtnTitle, setWelcomeBtnTitle] = useState("");
-  const [welcomeBtnUrl, setWelcomeBtnUrl] = useState("");
+  // Welcome Message settings (simple - no gates, no follow-ups)
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [welcomeEnabled, setWelcomeEnabled] = useState(selectedAccount?.welcome_enabled || false);
+  const [welcomeMessage, setWelcomeMessage] = useState(selectedAccount?.welcome_message || "");
+  const [welcomeButtonTitle, setWelcomeButtonTitle] = useState(selectedAccount?.welcome_button_title || "");
+  const [welcomeButtonUrl, setWelcomeButtonUrl] = useState(selectedAccount?.welcome_button_url || "");
   const [savingWelcome, setSavingWelcome] = useState(false);
-  const [welcomeSavedMsg, setWelcomeSavedMsg] = useState("");
-  
-  // Accordion form open/close state
-  const [isEditingWelcome, setIsEditingWelcome] = useState(false);
 
-  // Sync state ONLY when changing selected account tab (Prevents Next.js refresh re-render wipes)
-  useEffect(() => {
-    if (selectedAccount) {
-      setWelcomeEnabled(!!selectedAccount.welcome_enabled);
-      setWelcomeMessage(selectedAccount.welcome_message || "");
-      setWelcomeBtnTitle(selectedAccount.welcome_button_title || "");
-      setWelcomeBtnUrl(selectedAccount.welcome_button_url || "");
-      setWelcomeSavedMsg("");
-      setIsEditingWelcome(false);
-    }
-  }, [selectedId]);
-
-  // Handle Switch Toggle
-  async function handleToggleWelcome(e) {
-    const newStatus = e.target.checked;
-
-    // First-time setup: If no message is configured yet and user flips switch ON
-    if (newStatus && !welcomeMessage.trim()) {
-      setWelcomeEnabled(true);
-      setIsEditingWelcome(true); // Open edit form automatically
-      return;
-    }
-
-    setWelcomeEnabled(newStatus);
-
-    const { error } = await supabase
-      .from("instagram_accounts")
-      .update({ welcome_enabled: newStatus })
-      .eq("id", selectedAccount.id);
-
-    if (error) {
-      console.error("Supabase Error:", error);
-      alert("Database error: " + error.message);
-      setWelcomeEnabled(!newStatus); // Revert state on error
-    } else {
-      router.refresh();
-    }
+  function openWelcomeSettings() {
+    setWelcomeEnabled(selectedAccount?.welcome_enabled || false);
+    setWelcomeMessage(selectedAccount?.welcome_message || "");
+    setWelcomeButtonTitle(selectedAccount?.welcome_button_title || "");
+    setWelcomeButtonUrl(selectedAccount?.welcome_button_url || "");
+    setWelcomeOpen(true);
   }
 
-  // Save Welcome Message Form
-  async function handleSaveWelcome(e) {
-    e.preventDefault();
-    if (!selectedAccount) return;
-    
-    const trimmedMessage = welcomeMessage.trim();
-    if (!trimmedMessage) {
-      alert("Please write a welcome message first!");
-      return;
-    }
-
+  async function saveWelcomeSettings() {
     setSavingWelcome(true);
-
-    const { error } = await supabase
+    await supabase
       .from("instagram_accounts")
       .update({
-        welcome_enabled: true, // Always set active when user saves form
-        welcome_message: trimmedMessage,
-        welcome_button_title: welcomeBtnTitle.trim(),
-        welcome_button_url: welcomeBtnUrl.trim(),
+        welcome_enabled: welcomeEnabled,
+        welcome_message: welcomeMessage.trim() || null,
+        welcome_button_title: welcomeButtonTitle.trim() || null,
+        welcome_button_url: welcomeButtonUrl.trim() || null,
       })
       .eq("id", selectedAccount.id);
-
     setSavingWelcome(false);
-
-    if (error) {
-      console.error("Supabase Save Error:", error);
-      alert("Failed to save to database: " + error.message);
-    } else {
-      setWelcomeEnabled(true);
-      setIsEditingWelcome(false); // Collapse form after saving
-      setWelcomeSavedMsg("Saved & Active! 🚀");
-      setTimeout(() => setWelcomeSavedMsg(""), 3000);
-      router.refresh();
-    }
+    setWelcomeOpen(false);
+    router.refresh();
   }
 
   async function handleLogout() {
@@ -136,9 +86,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
 
   const initials = (user.email || "?").charAt(0).toUpperCase();
   const canAddMore = igAccounts.length < MAX_ACCOUNTS_PER_USER;
-
-  // Checks local state first to know if a message has been saved
-  const hasSavedMessage = welcomeMessage.trim().length > 0;
 
   return (
     <div className="dash-shell">
@@ -180,6 +127,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           </div>
         ) : (
           <>
+            {/* Account switcher - only shows the tab row if there's more than one */}
             {igAccounts.length > 1 && (
               <div className="account-tabs">
                 {igAccounts.map((acc) => (
@@ -232,100 +180,80 @@ export default function DashboardClient({ user, igAccounts = [] }) {
               </div>
             )}
 
-            {/* WELCOME MESSAGE CARD */}
+            {/* Welcome Message settings card */}
             <div className="welcome-card">
-              <div className="welcome-main-row">
-                <div className="welcome-info">
-                  <div className="welcome-title-flex">
-                    <h3>👋 Welcome Message</h3>
-                    {hasSavedMessage && (
-                      <span className={`status-badge ${welcomeEnabled ? "active" : "paused"}`}>
-                        {welcomeEnabled ? "ACTIVE" : "PAUSED"}
-                      </span>
-                    )}
-                    {welcomeSavedMsg && <span className="inline-saved">{welcomeSavedMsg}</span>}
+              <div className="welcome-card-left">
+                <div className="welcome-icon">👋</div>
+                <div>
+                  <div className="welcome-title">Welcome Message</div>
+                  <div className="welcome-sub">
+                    {selectedAccount.welcome_enabled
+                      ? "On — greets anyone who DMs you for the first time"
+                      : "Off — greet first-time DM senders automatically"}
                   </div>
-                  <p className="welcome-subtext">
-                    {hasSavedMessage
-                      ? `"${welcomeMessage}"`
-                      : `Automatically reply to first-time DMs for @${selectedAccount.ig_username}.`}
-                  </p>
-                </div>
-
-                <div className="welcome-actions-group">
-                  <label className="switch" title="Enable/Disable">
-                    <input
-                      type="checkbox"
-                      checked={welcomeEnabled}
-                      onChange={handleToggleWelcome}
-                    />
-                    <span className="slider"></span>
-                  </label>
-
-                  {/* Edit button ONLY shows once a message is configured */}
-                  {hasSavedMessage && (
-                    <button
-                      type="button"
-                      className="edit-btn-neo"
-                      onClick={() => setIsEditingWelcome(!isEditingWelcome)}
-                    >
-                      {isEditingWelcome ? "Close ✕" : "Edit ✏️"}
-                    </button>
-                  )}
                 </div>
               </div>
+              <button className="welcome-edit-btn" onClick={openWelcomeSettings}>
+                {selectedAccount.welcome_enabled ? "Edit" : "Set up"}
+              </button>
+            </div>
 
-              {/* EXPANDABLE SETUP / CHAT FORM */}
-              {isEditingWelcome && (
-                <form onSubmit={handleSaveWelcome} className="welcome-edit-form">
-                  <div className="form-group">
-                    <label>Welcome Message Text</label>
-                    <textarea
-                      value={welcomeMessage}
-                      onChange={(e) => setWelcomeMessage(e.target.value)}
-                      placeholder="Hey! Thanks for reaching out 👋 How can I help you today?"
-                      rows={3}
-                      required
+            {welcomeOpen && (
+              <div className="welcome-modal-overlay" onClick={() => setWelcomeOpen(false)}>
+                <div className="welcome-modal" onClick={(e) => e.stopPropagation()}>
+                  <h3>Welcome Message</h3>
+                  <p className="welcome-modal-sub">
+                    Sent once to anyone who DMs @{selectedAccount.ig_username} for the
+                    first time — no comment or story needed. No follow gate, no data
+                    collection, just a simple hello.
+                  </p>
+
+                  <div className="welcome-switch-row">
+                    <span>Enabled</span>
+                    <button
+                      type="button"
+                      className={`w-switch ${welcomeEnabled ? "on" : ""}`}
+                      onClick={() => setWelcomeEnabled(!welcomeEnabled)}
                     />
                   </div>
 
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Button Title (Optional)</label>
-                      <input
-                        type="text"
-                        value={welcomeBtnTitle}
-                        onChange={(e) => setWelcomeBtnTitle(e.target.value)}
-                        placeholder="Visit Website"
-                        maxLength={20}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Button URL (Optional)</label>
-                      <input
-                        type="url"
-                        value={welcomeBtnUrl}
-                        onChange={(e) => setWelcomeBtnUrl(e.target.value)}
-                        placeholder="https://yourlink.com"
-                      />
-                    </div>
-                  </div>
+                  <label className="w-label">Message</label>
+                  <textarea
+                    className="w-textarea"
+                    rows={3}
+                    placeholder="Hey! Thanks for reaching out 👋"
+                    value={welcomeMessage}
+                    onChange={(e) => setWelcomeMessage(e.target.value)}
+                  />
 
-                  <div className="form-actions-bar">
-                    <button type="submit" disabled={savingWelcome} className="save-btn-neo">
-                      {savingWelcome ? "Saving..." : "Save Message 💾"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingWelcome(false)}
-                      className="cancel-btn-neo"
-                    >
+                  <label className="w-label">Button text (optional)</label>
+                  <input
+                    className="w-input"
+                    placeholder="Check it out"
+                    maxLength={20}
+                    value={welcomeButtonTitle}
+                    onChange={(e) => setWelcomeButtonTitle(e.target.value)}
+                  />
+
+                  <label className="w-label">Button link (optional)</label>
+                  <input
+                    className="w-input"
+                    placeholder="https://your-link.com"
+                    value={welcomeButtonUrl}
+                    onChange={(e) => setWelcomeButtonUrl(e.target.value)}
+                  />
+
+                  <div className="welcome-modal-actions">
+                    <button className="w-btn-plain" onClick={() => setWelcomeOpen(false)}>
                       Cancel
                     </button>
+                    <button className="w-btn-save" onClick={saveWelcomeSettings} disabled={savingWelcome}>
+                      {savingWelcome ? "Saving..." : "Save"}
+                    </button>
                   </div>
-                </form>
-              )}
-            </div>
+                </div>
+              </div>
+            )}
 
             <div className="next-card">
               <div className="next-icon">+</div>
@@ -437,6 +365,10 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           transform: translate(-1px, -1px);
           box-shadow: 3px 3px 0 #ff4fa3;
         }
+        .logout-btn:active {
+          transform: translate(0, 0);
+          box-shadow: 1px 1px 0 #ff4fa3;
+        }
         .dash-main {
           max-width: 620px;
           margin: 0 auto;
@@ -453,6 +385,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-weight: 600;
         }
         .hero-card {
+          position: relative;
           text-align: center;
           background: #fff;
           border: 3px solid #14121f;
@@ -467,6 +400,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           color: #14121f;
           font-weight: 800;
           font-size: 11px;
+          letter-spacing: 0.5px;
           text-transform: uppercase;
           padding: 5px 14px;
           border-radius: 999px;
@@ -477,6 +411,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-weight: 800;
           color: #14121f;
           margin: 0 0 12px;
+          line-height: 1.2;
         }
         .hero-card p {
           color: #4a4658;
@@ -498,8 +433,27 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 16px;
           cursor: pointer;
           box-shadow: 4px 4px 0 #14121f;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
           text-decoration: none;
         }
+        .connect-btn:hover {
+          transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0 #14121f;
+        }
+        .connect-btn:active {
+          transform: translate(0, 0);
+          box-shadow: 2px 2px 0 #14121f;
+        }
+        .btn-arrow {
+          font-size: 18px;
+        }
+        .hero-footnote {
+          margin-top: 20px;
+          font-size: 12px;
+          color: #8a8496;
+        }
+
+        /* Account switcher tabs */
         .account-tabs {
           display: flex;
           gap: 8px;
@@ -525,6 +479,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: transparent;
           color: #7c3aed;
         }
+
         .connected-banner {
           display: flex;
           align-items: center;
@@ -548,11 +503,13 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border-radius: 999px;
           background: #00d4b8;
           box-shadow: 0 0 0 4px rgba(0, 212, 184, 0.25);
+          flex-shrink: 0;
         }
         .connected-label {
           color: #a9a3b8;
           font-size: 11px;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
           font-weight: 700;
         }
         .connected-username {
@@ -574,6 +531,12 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 11px;
           font-weight: 700;
           cursor: pointer;
+          opacity: 0.85;
+        }
+        .disconnect-btn:hover {
+          opacity: 1;
+          border-color: #ff4fa3;
+          color: #ff4fa3;
         }
         .connected-check {
           width: 32px;
@@ -585,7 +548,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
+
         .add-account-link {
           display: block;
           width: 100%;
@@ -600,6 +565,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 13px;
           cursor: pointer;
         }
+        .add-account-link:hover {
+          background: #f5f0ff;
+        }
         .limit-note {
           text-align: center;
           font-size: 12px;
@@ -607,202 +575,172 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           margin-top: 14px;
         }
 
-        /* WELCOME CARD */
         .welcome-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 24px;
-          padding: 22px 24px;
-          box-shadow: 8px 8px 0 #7c3aed;
-          margin-top: 28px;
+          border-radius: 16px;
+          padding: 16px 20px;
+          margin-top: 14px;
+          box-shadow: 4px 4px 0 #ffd23f;
         }
-        .welcome-main-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-        }
-        .welcome-info {
-          flex: 1;
-          min-width: 0;
-        }
-        .welcome-title-flex {
+        .welcome-card-left {
           display: flex;
           align-items: center;
-          gap: 8px;
-          margin-bottom: 4px;
-          flex-wrap: wrap;
+          gap: 12px;
         }
-        .welcome-title-flex h3 {
-          font-size: 17px;
+        .welcome-icon {
+          font-size: 22px;
+        }
+        .welcome-title {
           font-weight: 800;
+          font-size: 14px;
           color: #14121f;
-          margin: 0;
         }
-        .status-badge {
-          font-size: 10px;
-          font-weight: 800;
-          padding: 2px 8px;
-          border-radius: 999px;
+        .welcome-sub {
+          font-size: 12px;
+          color: #8a8496;
+          margin-top: 2px;
+        }
+        .welcome-edit-btn {
           border: 2px solid #14121f;
-        }
-        .status-badge.active {
-          background: #00d4b8;
+          background: #fff8ed;
           color: #14121f;
-        }
-        .status-badge.paused {
-          background: #eee;
-          color: #666;
-        }
-        .inline-saved {
-          font-size: 11px;
-          font-weight: 800;
-          color: #00a88f;
-        }
-        .welcome-subtext {
-          font-size: 13px;
-          color: #555;
-          margin: 0;
-          font-weight: 600;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .welcome-actions-group {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-shrink: 0;
-        }
-
-        /* EDIT BUTTON */
-        .edit-btn-neo {
-          background: #ffd23f;
-          color: #14121f;
-          border: 2px solid #14121f;
-          padding: 6px 14px;
+          padding: 8px 16px;
           border-radius: 999px;
           font-weight: 800;
           font-size: 12px;
           cursor: pointer;
-          box-shadow: 2px 2px 0 #14121f;
-          transition: transform 0.1s ease;
+          flex-shrink: 0;
         }
-        .edit-btn-neo:hover {
-          transform: translate(-1px, -1px);
-          box-shadow: 3px 3px 0 #14121f;
+        .welcome-edit-btn:hover {
+          background: #ffd23f;
         }
 
-        /* TOGGLE SWITCH */
-        .switch {
-          position: relative;
-          display: inline-block;
-          width: 50px;
-          height: 28px;
-        }
-        .switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-        .slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background-color: #e2ded0;
-          transition: .2s ease;
-          border: 2.5px solid #14121f;
-          border-radius: 34px;
-        }
-        .slider:before {
-          position: absolute;
-          content: "";
-          height: 16px;
-          width: 16px;
-          left: 3px;
-          bottom: 3px;
-          background-color: #14121f;
-          transition: .2s ease;
-          border-radius: 50%;
-        }
-        input:checked + .slider {
-          background-color: #00d4b8;
-        }
-        input:checked + .slider:before {
-          transform: translateX(21px);
-          background-color: #fff;
-        }
-
-        /* CHAT / EDIT FORM */
-        .welcome-edit-form {
-          margin-top: 18px;
-          border-top: 2.5px dashed #14121f;
-          padding-top: 18px;
-        }
-        .form-group {
-          margin-bottom: 12px;
-        }
-        .form-group label {
-          display: block;
-          font-size: 11px;
-          font-weight: 800;
-          color: #14121f;
-          margin-bottom: 6px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .form-group textarea,
-        .form-group input {
-          width: 100%;
-          padding: 12px;
-          border: 2.5px solid #14121f;
-          border-radius: 12px;
-          font-size: 14px;
-          font-weight: 600;
-          background: #fff8ed;
-          outline: none;
-          color: #14121f;
-        }
-        .form-group textarea:focus,
-        .form-group input:focus {
-          background: #fff;
-        }
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-        .form-actions-bar {
+        .welcome-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(20, 18, 31, 0.6);
           display: flex;
           align-items: center;
-          gap: 10px;
-          margin-top: 16px;
+          justify-content: center;
+          padding: 20px;
+          z-index: 50;
         }
-        .save-btn-neo {
+        .welcome-modal {
+          background: #fff8ed;
+          border: 3px solid #14121f;
+          border-radius: 20px;
+          padding: 26px;
+          max-width: 420px;
+          width: 100%;
+          box-shadow: 8px 8px 0 #7c3aed;
+        }
+        .welcome-modal h3 {
+          margin: 0 0 6px;
+          font-size: 20px;
+          font-weight: 800;
+          color: #14121f;
+        }
+        .welcome-modal-sub {
+          font-size: 12px;
+          color: #8a8496;
+          margin: 0 0 18px;
+          line-height: 1.5;
+        }
+        .welcome-switch-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border: 2px solid #14121f;
+          border-radius: 10px;
+          padding: 10px 14px;
+          margin-bottom: 16px;
+          background: #fff;
+          font-weight: 700;
+          font-size: 13px;
+        }
+        .w-switch {
+          width: 44px;
+          height: 25px;
+          border: 2px solid #14121f;
+          border-radius: 20px;
+          background: #fff;
+          position: relative;
+          cursor: pointer;
+          padding: 0;
+        }
+        .w-switch.on {
           background: #00d4b8;
+        }
+        .w-switch::after {
+          content: "";
+          position: absolute;
+          width: 17px;
+          height: 17px;
+          background: #14121f;
+          border-radius: 50%;
+          top: 2px;
+          left: 2px;
+          transition: transform 0.15s ease;
+        }
+        .w-switch.on::after {
+          transform: translateX(19px);
+        }
+        .w-label {
+          display: block;
+          font-weight: 700;
+          font-size: 12px;
           color: #14121f;
-          border: 2.5px solid #14121f;
+          margin: 0 0 6px;
+        }
+        .w-textarea,
+        .w-input {
+          width: 100%;
+          border: 2px solid #14121f;
+          border-radius: 8px;
+          padding: 10px 12px;
+          font-size: 13px;
+          font-family: inherit;
+          color: #14121f;
+          background: #fff;
+          margin-bottom: 14px;
+          box-sizing: border-box;
+        }
+        .w-textarea {
+          resize: vertical;
+        }
+        .welcome-modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          margin-top: 6px;
+        }
+        .w-btn-plain {
+          border: none;
+          background: none;
+          color: #8a8496;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          padding: 10px 8px;
+        }
+        .w-btn-save {
+          background: linear-gradient(135deg, #ff4fa3, #7c3aed);
+          color: #fff;
+          border: 2px solid #14121f;
+          border-radius: 999px;
           padding: 10px 20px;
-          border-radius: 12px;
           font-weight: 800;
           font-size: 13px;
           cursor: pointer;
-          box-shadow: 3px 3px 0 #14121f;
-          transition: transform 0.1s;
         }
-        .save-btn-neo:hover {
-          transform: translate(-1px, -1px);
-          box-shadow: 4px 4px 0 #14121f;
-        }
-        .cancel-btn-neo {
-          background: transparent;
-          color: #14121f;
-          border: 2.5px solid #14121f;
-          padding: 10px 16px;
-          border-radius: 12px;
-          font-weight: 800;
-          font-size: 13px;
-          cursor: pointer;
+        .w-btn-save:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         .next-card {
