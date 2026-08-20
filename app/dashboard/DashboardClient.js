@@ -22,8 +22,14 @@ export default function DashboardClient({ user, igAccounts = [] }) {
   const igError = searchParams.get("ig_error");
 
   // Which connected account is currently "active" in the dashboard view.
-  // Defaults to the first one. Remembered client-side only for now.
-  const [selectedId, setSelectedId] = useState(igAccounts[0]?.id || null);
+  // Defaults to the ?account=<id> URL param if present (e.g. coming back
+  // from the automations list), otherwise the first connected account.
+  const accountFromUrl = searchParams.get("account");
+  const initialSelectedId =
+    (accountFromUrl && igAccounts.some((a) => a.id === accountFromUrl))
+      ? accountFromUrl
+      : igAccounts[0]?.id || null;
+  const [selectedId, setSelectedId] = useState(initialSelectedId);
   const selectedAccount = igAccounts.find((a) => a.id === selectedId) || igAccounts[0] || null;
 
   async function handleLogout() {
@@ -149,10 +155,16 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                 Pick a trigger, set a keyword, and write the DM that gets
                 sent automatically for @{selectedAccount.ig_username}.
               </p>
-              <a href="/dashboard/automations/new" className="connect-btn">
+              <a
+                href={`/dashboard/automations/new?account=${selectedAccount.id}`}
+                className="connect-btn"
+              >
                 Create automation
               </a>
-              <a href="/dashboard/automations" className="view-all-link">
+              <a
+                href={`/dashboard/automations?account=${selectedAccount.id}`}
+                className="view-all-link"
+              >
                 View all automations →
               </a>
             </div>
