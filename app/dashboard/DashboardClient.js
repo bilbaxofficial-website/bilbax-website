@@ -27,7 +27,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const selectedAccount = igAccounts.find((a) => a.id === selectedId) || igAccounts[0] || null;
 
-  // Welcome Message local states
+  // Local state for Welcome Message
   const [welcomeEnabled, setWelcomeEnabled] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [welcomeBtnTitle, setWelcomeBtnTitle] = useState("");
@@ -35,43 +35,43 @@ export default function DashboardClient({ user, igAccounts = [] }) {
   const [savingWelcome, setSavingWelcome] = useState(false);
   const [welcomeSavedMsg, setWelcomeSavedMsg] = useState("");
   
-  // Accordion state for editing
+  // Accordion form open/close state
   const [isEditingWelcome, setIsEditingWelcome] = useState(false);
 
-  // Sync welcome state when selected account changes
+  // Sync state ONLY when changing selected account tab (Prevents Next.js refresh re-render wipes)
   useEffect(() => {
     if (selectedAccount) {
-      const isEnabled = !!selectedAccount.welcome_enabled;
-      const msg = selectedAccount.welcome_message || "";
-      setWelcomeEnabled(isEnabled);
-      setWelcomeMessage(msg);
+      setWelcomeEnabled(!!selectedAccount.welcome_enabled);
+      setWelcomeMessage(selectedAccount.welcome_message || "");
       setWelcomeBtnTitle(selectedAccount.welcome_button_title || "");
       setWelcomeBtnUrl(selectedAccount.welcome_button_url || "");
       setWelcomeSavedMsg("");
       setIsEditingWelcome(false);
     }
-  }, [selectedId, selectedAccount]);
+  }, [selectedId]);
 
   // Handle Switch Toggle
   async function handleToggleWelcome(e) {
     const newStatus = e.target.checked;
-    setWelcomeEnabled(newStatus);
 
-    // If turning ON for the first time without a saved message, open form directly
+    // First-time setup: If no message is configured yet and user flips switch ON
     if (newStatus && !welcomeMessage.trim()) {
-      setIsEditingWelcome(true);
+      setWelcomeEnabled(true);
+      setIsEditingWelcome(true); // Open edit form automatically
       return;
     }
 
-    // Save toggle status directly if message already exists
+    setWelcomeEnabled(newStatus);
+
     const { error } = await supabase
       .from("instagram_accounts")
       .update({ welcome_enabled: newStatus })
       .eq("id", selectedAccount.id);
 
     if (error) {
-      alert("Error updating status: " + error.message);
-      setWelcomeEnabled(!newStatus);
+      console.error("Supabase Error:", error);
+      alert("Database error: " + error.message);
+      setWelcomeEnabled(!newStatus); // Revert state on error
     } else {
       router.refresh();
     }
@@ -81,32 +81,34 @@ export default function DashboardClient({ user, igAccounts = [] }) {
   async function handleSaveWelcome(e) {
     e.preventDefault();
     if (!selectedAccount) return;
-    if (!welcomeMessage.trim()) {
-      alert("Please enter a welcome message first!");
+    
+    const trimmedMessage = welcomeMessage.trim();
+    if (!trimmedMessage) {
+      alert("Please write a welcome message first!");
       return;
     }
 
     setSavingWelcome(true);
-    setWelcomeSavedMsg("");
 
     const { error } = await supabase
       .from("instagram_accounts")
       .update({
-        welcome_enabled: true, // Always set active on initial save
-        welcome_message: welcomeMessage,
-        welcome_button_title: welcomeBtnTitle,
-        welcome_button_url: welcomeBtnUrl,
+        welcome_enabled: true, // Always set active when user saves form
+        welcome_message: trimmedMessage,
+        welcome_button_title: welcomeBtnTitle.trim(),
+        welcome_button_url: welcomeBtnUrl.trim(),
       })
       .eq("id", selectedAccount.id);
 
     setSavingWelcome(false);
 
     if (error) {
-      alert("Error saving welcome settings: " + error.message);
+      console.error("Supabase Save Error:", error);
+      alert("Failed to save to database: " + error.message);
     } else {
       setWelcomeEnabled(true);
-      setIsEditingWelcome(false); // Close form on save
-      setWelcomeSavedMsg("Saved & Activated! 🚀");
+      setIsEditingWelcome(false); // Collapse form after saving
+      setWelcomeSavedMsg("Saved & Active! 🚀");
       setTimeout(() => setWelcomeSavedMsg(""), 3000);
       router.refresh();
     }
@@ -134,7 +136,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
 
   const initials = (user.email || "?").charAt(0).toUpperCase();
   const canAddMore = igAccounts.length < MAX_ACCOUNTS_PER_USER;
-  const hasSavedMessage = !!selectedAccount?.welcome_message;
+
+  // Checks local state first to know if a message has been saved
+  const hasSavedMessage = welcomeMessage.trim().length > 0;
 
   return (
     <div className="dash-shell">
@@ -228,7 +232,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
               </div>
             )}
 
-            {/* MAXIMALIST THEMED WELCOME MESSAGE CARD */}
+            {/* WELCOME MESSAGE CARD */}
             <div className="welcome-card">
               <div className="welcome-main-row">
                 <div className="welcome-info">
@@ -258,7 +262,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                     <span className="slider"></span>
                   </label>
 
-                  {/* Edit button ONLY shows after a message has been configured & saved */}
+                  {/* Edit button ONLY shows once a message is configured */}
                   {hasSavedMessage && (
                     <button
                       type="button"
@@ -271,7 +275,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                 </div>
               </div>
 
-              {/* EXPANDABLE CHAT / FORM SECTION */}
+              {/* EXPANDABLE SETUP / CHAT FORM */}
               {isEditingWelcome && (
                 <form onSubmit={handleSaveWelcome} className="welcome-edit-form">
                   <div className="form-group">
@@ -603,7 +607,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           margin-top: 14px;
         }
 
-        /* MAXIMALIST WELCOME CARD */
+        /* WELCOME CARD */
         .welcome-card {
           background: #fff;
           border: 3px solid #14121f;
@@ -671,7 +675,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           flex-shrink: 0;
         }
 
-        /* NEO-BRUTALIST EDIT BUTTON */
+        /* EDIT BUTTON */
         .edit-btn-neo {
           background: #ffd23f;
           color: #14121f;
@@ -689,7 +693,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           box-shadow: 3px 3px 0 #14121f;
         }
 
-        /* NEO-BRUTALIST TOGGLE SWITCH */
+        /* TOGGLE SWITCH */
         .switch {
           position: relative;
           display: inline-block;
@@ -729,7 +733,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background-color: #fff;
         }
 
-        /* EXPANDABLE FORM */
+        /* CHAT / EDIT FORM */
         .welcome-edit-form {
           margin-top: 18px;
           border-top: 2.5px dashed #14121f;
