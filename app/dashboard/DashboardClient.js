@@ -2,7 +2,7 @@
 
 import { createClient } from "../../lib/supabase-client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const MAX_ACCOUNTS_PER_USER = 5;
 
@@ -12,25 +12,65 @@ const ERROR_MESSAGES = {
   already_connected: "That Instagram account is already connected to a different Bilbax account.",
 };
 
-// props:
-//   user           - the logged-in Bilbax user
-//   igAccounts     - array of ALL Instagram accounts connected to this user (can be empty)
 export default function DashboardClient({ user, igAccounts = [] }) {
   const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const igError = searchParams.get("ig_error");
 
-  // Which connected account is currently "active" in the dashboard view.
-  // Defaults to the ?account=<id> URL param if present (e.g. coming back
-  // from the automations list), otherwise the first connected account.
   const accountFromUrl = searchParams.get("account");
   const initialSelectedId =
     (accountFromUrl && igAccounts.some((a) => a.id === accountFromUrl))
       ? accountFromUrl
       : igAccounts[0]?.id || null;
+      
   const [selectedId, setSelectedId] = useState(initialSelectedId);
   const selectedAccount = igAccounts.find((a) => a.id === selectedId) || igAccounts[0] || null;
+
+  // Welcome Message local states
+  const [welcomeEnabled, setWelcomeEnabled] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [welcomeBtnTitle, setWelcomeBtnTitle] = useState("");
+  const [welcomeBtnUrl, setWelcomeBtnUrl] = useState("");
+  const [savingWelcome, setSavingWelcome] = useState(false);
+  const [welcomeSavedMsg, setWelcomeSavedMsg] = useState("");
+
+  // Sync welcome state when selected account changes
+  useEffect(() => {
+    if (selectedAccount) {
+      setWelcomeEnabled(!!selectedAccount.welcome_enabled);
+      setWelcomeMessage(selectedAccount.welcome_message || "");
+      setWelcomeBtnTitle(selectedAccount.welcome_button_title || "");
+      setWelcomeBtnUrl(selectedAccount.welcome_button_url || "");
+      setWelcomeSavedMsg("");
+    }
+  }, [selectedId, selectedAccount]);
+
+  async function handleSaveWelcome(e) {
+    e.preventDefault();
+    if (!selectedAccount) return;
+    setSavingWelcome(true);
+    setWelcomeSavedMsg("");
+
+    const { error } = await supabase
+      .from("instagram_accounts")
+      .update({
+        welcome_enabled: welcomeEnabled,
+        welcome_message: welcomeMessage,
+        welcome_button_title: welcomeBtnTitle,
+        welcome_button_url: welcomeBtnUrl,
+      })
+      .eq("id", selectedAccount.id);
+
+    setSavingWelcome(false);
+    if (error) {
+      alert("Error saving welcome settings: " + error.message);
+    } else {
+      setWelcomeSavedMsg("Saved successfully! ✅");
+      setTimeout(() => setWelcomeSavedMsg(""), 3000);
+      router.refresh();
+    }
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -95,7 +135,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           </div>
         ) : (
           <>
-            {/* Account switcher - only shows the tab row if there's more than one */}
             {igAccounts.length > 1 && (
               <div className="account-tabs">
                 {igAccounts.map((acc) => (
@@ -147,6 +186,68 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                 You've connected {MAX_ACCOUNTS_PER_USER}/{MAX_ACCOUNTS_PER_USER} accounts (the current max).
               </div>
             )}
+
+            {/* WELCOME MESSAGE CONFIG CARD */}
+            <div className="welcome-card">
+              <div className="welcome-header">
+                <div className="welcome-title-group">
+                  <h3>👋 Welcome Message</h3>
+                  <p>Automatically reply to first-time DMs with a custom greeting and link.</p>
+                </div>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={welcomeEnabled}
+                    onChange={(e) => setWelcomeEnabled(e.target.checked)}
+                  />
+                  <span className="slider round"></span>
+                </label>
+              </div>
+
+              {welcomeEnabled && (
+                <form onSubmit={handleSaveWelcome} className="welcome-form">
+                  <div className="form-group">
+                    <label>Welcome Message Text</label>
+                    <textarea
+                      value={welcomeMessage}
+                      onChange={(e) => setWelcomeMessage(e.target.value)}
+                      placeholder="Hey! Thanks for reaching out 👋"
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Button Title (Optional)</label>
+                      <input
+                        type="text"
+                        value={welcomeBtnTitle}
+                        onChange={(e) => setWelcomeBtnTitle(e.target.value)}
+                        placeholder="Visit Website"
+                        maxLength={20}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Button URL (Optional)</label>
+                      <input
+                        type="url"
+                        value={welcomeBtnUrl}
+                        onChange={(e) => setWelcomeBtnUrl(e.target.value)}
+                        placeholder="https://yourlink.com"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="welcome-actions">
+                    <button type="submit" disabled={savingWelcome} className="save-welcome-btn">
+                      {savingWelcome ? "Saving..." : "Save Welcome Message"}
+                    </button>
+                    {welcomeSavedMsg && <span className="saved-badge">{welcomeSavedMsg}</span>}
+                  </div>
+                </form>
+              )}
+            </div>
 
             <div className="next-card">
               <div className="next-icon">+</div>
@@ -258,10 +359,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           transform: translate(-1px, -1px);
           box-shadow: 3px 3px 0 #ff4fa3;
         }
-        .logout-btn:active {
-          transform: translate(0, 0);
-          box-shadow: 1px 1px 0 #ff4fa3;
-        }
         .dash-main {
           max-width: 620px;
           margin: 0 auto;
@@ -278,7 +375,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-weight: 600;
         }
         .hero-card {
-          position: relative;
           text-align: center;
           background: #fff;
           border: 3px solid #14121f;
@@ -293,7 +389,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           color: #14121f;
           font-weight: 800;
           font-size: 11px;
-          letter-spacing: 0.5px;
           text-transform: uppercase;
           padding: 5px 14px;
           border-radius: 999px;
@@ -304,7 +399,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-weight: 800;
           color: #14121f;
           margin: 0 0 12px;
-          line-height: 1.2;
         }
         .hero-card p {
           color: #4a4658;
@@ -326,27 +420,8 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 16px;
           cursor: pointer;
           box-shadow: 4px 4px 0 #14121f;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
           text-decoration: none;
         }
-        .connect-btn:hover {
-          transform: translate(-2px, -2px);
-          box-shadow: 6px 6px 0 #14121f;
-        }
-        .connect-btn:active {
-          transform: translate(0, 0);
-          box-shadow: 2px 2px 0 #14121f;
-        }
-        .btn-arrow {
-          font-size: 18px;
-        }
-        .hero-footnote {
-          margin-top: 20px;
-          font-size: 12px;
-          color: #8a8496;
-        }
-
-        /* Account switcher tabs */
         .account-tabs {
           display: flex;
           gap: 8px;
@@ -372,7 +447,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: transparent;
           color: #7c3aed;
         }
-
         .connected-banner {
           display: flex;
           align-items: center;
@@ -396,13 +470,11 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border-radius: 999px;
           background: #00d4b8;
           box-shadow: 0 0 0 4px rgba(0, 212, 184, 0.25);
-          flex-shrink: 0;
         }
         .connected-label {
           color: #a9a3b8;
           font-size: 11px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
           font-weight: 700;
         }
         .connected-username {
@@ -424,12 +496,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 11px;
           font-weight: 700;
           cursor: pointer;
-          opacity: 0.85;
-        }
-        .disconnect-btn:hover {
-          opacity: 1;
-          border-color: #ff4fa3;
-          color: #ff4fa3;
         }
         .connected-check {
           width: 32px;
@@ -441,9 +507,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0;
         }
-
         .add-account-link {
           display: block;
           width: 100%;
@@ -458,14 +522,127 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 13px;
           cursor: pointer;
         }
-        .add-account-link:hover {
-          background: #f5f0ff;
-        }
         .limit-note {
           text-align: center;
           font-size: 12px;
           color: #8a8496;
           margin-top: 14px;
+        }
+
+        /* WELCOME CARD STYLES */
+        .welcome-card {
+          background: #fff;
+          border: 3px solid #14121f;
+          border-radius: 24px;
+          padding: 28px;
+          box-shadow: 8px 8px 0 #7c3aed;
+          margin-top: 28px;
+        }
+        .welcome-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 15px;
+        }
+        .welcome-title-group h3 {
+          font-size: 18px;
+          font-weight: 800;
+          color: #14121f;
+          margin: 0 0 4px;
+        }
+        .welcome-title-group p {
+          font-size: 13px;
+          color: #666;
+          margin: 0;
+        }
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 50px;
+          height: 28px;
+          flex-shrink: 0;
+        }
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: #ccc;
+          transition: .3s;
+          border: 2px solid #14121f;
+          border-radius: 34px;
+        }
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: .3s;
+          border-radius: 50%;
+        }
+        input:checked + .slider {
+          background-color: #00d4b8;
+        }
+        input:checked + .slider:before {
+          transform: translateX(22px);
+        }
+        .welcome-form {
+          margin-top: 20px;
+          border-top: 2px dashed #eee;
+          padding-top: 20px;
+        }
+        .form-group {
+          margin-bottom: 14px;
+        }
+        .form-group label {
+          display: block;
+          font-size: 12px;
+          font-weight: 800;
+          color: #14121f;
+          margin-bottom: 6px;
+        }
+        .form-group textarea,
+        .form-group input {
+          width: 100%;
+          padding: 12px;
+          border: 2px solid #14121f;
+          border-radius: 12px;
+          font-size: 14px;
+          background: #fff8ed;
+          outline: none;
+        }
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .welcome-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 16px;
+        }
+        .save-welcome-btn {
+          background: #14121f;
+          color: #fff8ed;
+          border: 2px solid #14121f;
+          padding: 10px 20px;
+          border-radius: 10px;
+          font-weight: 800;
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .saved-badge {
+          color: #00a88f;
+          font-weight: 700;
+          font-size: 13px;
         }
 
         .next-card {
