@@ -110,7 +110,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
       return;
     }
 
-    router.push("/dashboard/automations");
+    router.push(`/dashboard/automations?account=${igAccountId}`);
   }
 
   const previewName = "Riya";
@@ -119,7 +119,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
     <div className="page-shell">
       <header className="page-header">
         <a href="/" className="page-logo">bilbax</a>
-        <a href="/dashboard" className="back-link">← Back to dashboard</a>
+        <a href={`/dashboard?account=${igAccountId}`} className="back-link">← Back to dashboard</a>
       </header>
 
       <main className="page-main">
