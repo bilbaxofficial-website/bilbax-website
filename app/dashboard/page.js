@@ -13,15 +13,17 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: igAccount } = await supabase
+  // Fetch ALL Instagram accounts connected to this user (up to 5).
+  // Ordered oldest-first so the switcher tabs stay in a stable order.
+  const { data: igAccounts } = await supabase
     .from("instagram_accounts")
-    .select("ig_username, connected_at")
+    .select("id, ig_username, connected_at")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .order("connected_at", { ascending: true });
 
   return (
     <Suspense fallback={null}>
-      <DashboardClient user={user} igAccount={igAccount} />
+      <DashboardClient user={user} igAccounts={igAccounts || []} />
     </Suspense>
   );
 }
