@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   // Ordered oldest-first so the switcher tabs stay in a stable order.
   const { data: igAccounts } = await supabase
     .from("instagram_accounts")
-    .select("id, ig_username, connected_at")
+    .select("id, ig_username, connected_at, welcome_enabled, welcome_message, welcome_button_title, welcome_button_url")
     .eq("user_id", user.id)
     .order("connected_at", { ascending: true });
 
