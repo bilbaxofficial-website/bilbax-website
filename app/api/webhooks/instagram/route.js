@@ -25,7 +25,7 @@ export async function GET(request) {
 // Meta Graph API Message Helper
 async function callSendAPI(igAccountId, accessToken, recipient, message) {
   try {
-    console.log("🚀 SENDING API CALL TO:", recipient.id || recipient.comment_id);
+    console.log("🚀 SENDING API CALL TO RECIPIENT:", JSON.stringify(recipient));
     const res = await fetch(`https://graph.instagram.com/v21.0/${igAccountId}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33,13 +33,13 @@ async function callSendAPI(igAccountId, accessToken, recipient, message) {
     });
     const data = await res.json();
     if (data.error) {
-      console.error("❌ META API ERROR:", data.error.message);
+      console.error("❌ META API ERROR DETAILS:", JSON.stringify(data.error));
     } else {
-      console.log("✅ MESSAGE SENT SUCCESSFULLY!");
+      console.log("✅ MESSAGE SENT SUCCESSFULLY! Res ID:", data.message_id || "OK");
     }
     return !data.error;
   } catch (err) {
-    console.error("❌ FETCH ERROR:", err);
+    console.error("❌ FETCH ERROR IN CALLSENDAPI:", err);
     return false;
   }
 }
@@ -132,10 +132,7 @@ async function sendWelcomeMessage(igAccountId, accessToken, recipient, account) 
   return callSendAPI(igAccountId, accessToken, recipient, { text });
 }
 
-// Decides what the very next step should be, right after a trigger matches
-// (comment or story reply) or right after a gate (follow / collect) has
-// just been cleared. Returns the status string to save, or null if
-// nothing left to do (send final message).
+// Decides what the very next step should be
 function nextPendingStatus(automation, justCleared) {
   const needsFollow = !!automation.require_follow;
   const needsCollect = !!automation.collect_field;
@@ -155,10 +152,7 @@ function nextPendingStatus(automation, justCleared) {
   return null;
 }
 
-// Shared entry point once we know: which automation matched, who triggered
-// it, and how to reply to them right now (comment_id for a fresh comment,
-// or {id: senderId} for a fresh story reply). Handles starting the
-// follow-gate / data-collection flow, or sending the final message.
+// Shared entry point for automation flow
 async function startAutomationFlow({
   igAccountId,
   accessToken,
@@ -222,8 +216,6 @@ export async function POST(request) {
       for (const change of changes) {
         if (change.field !== "comments" && change.field !== "live_comments") continue;
 
-        // Meta sends live-video comments on a separate field, but with the
-        // exact same value shape as regular comments (from, media, text, id).
         const isLive = change.field === "live_comments";
         const dbTriggerType = isLive ? "live_comment" : "comment";
         
@@ -308,7 +300,7 @@ export async function POST(request) {
         const isStoryReply = !!msg.message?.reply_to?.story;
 
         if (!senderId) continue;
-        console.log(`📩 INBOX EVENT: Sender=${senderId} | StoryReply=${isStoryReply} | Payload/Text=${textPayload}`);
+        console.log(`📩 INBOX EVENT: Sender=${senderId} | StoryReply=${isStoryReply} | Text/Payload=${textPayload}`);
 
         const { data: account, error: accountErr } = await supabase
           .from("instagram_accounts")
@@ -317,9 +309,12 @@ export async function POST(request) {
           .maybeSingle();
 
         if (accountErr) console.error("❌ SUPABASE DM DB ERROR:", accountErr.message);
-        if (!account) continue;
+        if (!account) {
+          console.log("🛑 STOP: Account for DM recipient not found in DB.");
+          continue;
+        }
 
-        // Is this person already mid-flow (waiting on a gate)?
+        // Check if user is mid-flow (waiting on a gate)
         const { data: pending } = await supabase
           .from("conversation_state")
           .select("*, automations(*)")
@@ -330,8 +325,7 @@ export async function POST(request) {
           .limit(1)
           .maybeSingle();
 
-        // --- Case: a NEW story reply, and they're not already mid-flow ---
-        // (if they ARE mid-flow, their message is a gate reply, not a new trigger - handled below)
+        // --- Case A: NEW Story Reply ---
         if (isStoryReply && !pending && rawText) {
           console.log("📖 STORY REPLY DETECTED, checking for matching automations...");
 
@@ -359,57 +353,74 @@ export async function POST(request) {
                 automation: matched,
                 recipient: { id: senderId },
                 triggerUserId: senderId,
-                triggerUsername: null, // Instagram doesn't include a username on story reply events
+                triggerUsername: null,
               });
             } else {
               console.log("🛑 STOP: Story reply text kisi keyword se match nahi hua!");
             }
           } else {
-            console.log("🛑 STOP: Koi active story_reply automation nahi mili is account ke liye!");
+            console.log("🛑 STOP: Koi active story_reply automation nahi mili!");
           }
           continue;
         }
 
-        // --- Case: plain DM (not a story reply), not mid-flow - check for Welcome Message ---
-        if (!isStoryReply && !pending && rawText && account.welcome_enabled) {
-          const { data: alreadyWelcomed } = await supabase
-            .from("welcomed_senders")
-            .select("id")
-            .eq("ig_account_id", account.id)
-            .eq("sender_ig_id", senderId)
-            .maybeSingle();
+        // --- Case B: Direct DM (Welcome Message Trigger) ---
+        if (!isStoryReply && !pending && rawText) {
+          if (!account.welcome_enabled) {
+            console.log("⚠️ WELCOME MESSAGE IS DISABLED FOR THIS ACCOUNT IN DB.");
+          } else {
+            // Check if sender was already welcomed
+            const { data: alreadyWelcomed, error: welcomeErr } = await supabase
+              .from("welcomed_senders")
+              .select("id")
+              .eq("ig_account_id", account.id)
+              .eq("sender_ig_id", senderId)
+              .maybeSingle();
 
-          if (!alreadyWelcomed) {
-            console.log("👋 NEW SENDER - sending Welcome Message...");
-            const sent = await sendWelcomeMessage(igAccountId, account.access_token, { id: senderId }, account);
-            if (sent) {
-              await supabase.from("welcomed_senders").insert({
-                ig_account_id: account.id,
-                sender_ig_id: senderId,
-              });
+            if (welcomeErr) {
+              console.error("⚠️ WELCOMED_SENDERS DB CHECK ERROR:", welcomeErr.message);
             }
-            continue;
+
+            if (alreadyWelcomed) {
+              console.log(`ℹ️ SENDER ${senderId} ALREADY RECEIVED WELCOME MESSAGE PREVIOUSLY. SKIPPING.`);
+            } else {
+              console.log("👋 NEW SENDER DETECTED! Triggering Welcome Message...");
+              const sent = await sendWelcomeMessage(igAccountId, account.access_token, { id: senderId }, account);
+              
+              if (sent) {
+                const { error: insertErr } = await supabase.from("welcomed_senders").insert({
+                  ig_account_id: account.id,
+                  sender_ig_id: senderId,
+                });
+                if (insertErr) {
+                  console.error("⚠️ COULD NOT RECORD SENDER IN WELCOMED_SENDERS:", insertErr.message);
+                } else {
+                  console.log("✅ RECORDED SENDER IN WELCOMED_SENDERS DB TABLE");
+                }
+              }
+              continue;
+            }
           }
         }
 
-        // --- Case: no pending gate and not a story reply - nothing to do ---
+        // --- Case C: Mid-flow Conversation / Pending Gates ---
         if (!pending || !pending.automations) {
-           console.log("🛑 STOP: Is user ke liye DB mein koi pending state nahi hai.");
+           console.log("🛑 STOP: Is user ke liye koi active pending gate ya automation nahi hai.");
            continue;
         }
 
         const automation = pending.automations;
         const recipient = { id: senderId };
 
-        // FIRST GATE CLICKED (they said they followed)
+        // FIRST GATE CLICKED
         if (pending.status === "awaiting_first_click" && (textPayload === "FIRST_FOLLOW_CHECK" || textPayload.toLowerCase().includes("followed"))) {
-          console.log("✅ FIRST GATE PASSED! Wait for 2 sec, sending Second Gate...");
+          console.log("✅ FIRST GATE PASSED! Sending Second Gate...");
           await supabase.from("conversation_state").update({ status: "awaiting_second_click", updated_at: new Date().toISOString() }).eq("id", pending.id);
           await sendSecondProfileGate(igAccountId, account.access_token, recipient, account.ig_username || "instagram");
           continue;
         }
 
-        // SECOND GATE CLICKED (they confirmed the follow)
+        // SECOND GATE CLICKED
         if (pending.status === "awaiting_second_click" && (textPayload === "SECOND_FOLLOW_CONFIRMED" || textPayload.toLowerCase().includes("yes"))) {
            console.log("✅ SECOND GATE PASSED!");
            const afterFollow = nextPendingStatus(automation, "follow");
@@ -426,7 +437,7 @@ export async function POST(request) {
            continue;
         }
 
-        // DATA COLLECTION REPLY (they typed their email/phone)
+        // DATA COLLECTION REPLY
         if (pending.status === "awaiting_data" && rawText) {
           console.log("✅ DATA COLLECTED:", rawText, "-> sending Final Link...");
           await supabase
