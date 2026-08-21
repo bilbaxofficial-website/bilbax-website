@@ -37,11 +37,11 @@ export default async function AutomationsPage({ searchParams }) {
     redirect("/dashboard");
   }
 
-  // Also grab the account's username, so the list page can show which
-  // account these automations belong to.
+  // Also grab the account's username and access token - the token lets
+  // the list page fetch a thumbnail preview for any post-locked automations.
   const { data: account } = await supabase
     .from("instagram_accounts")
-    .select("id, ig_username")
+    .select("id, ig_username, access_token")
     .eq("id", accountId)
     .eq("user_id", user.id) // security: make sure this account actually belongs to the logged-in user
     .maybeSingle();
@@ -53,7 +53,7 @@ export default async function AutomationsPage({ searchParams }) {
   const { data: automations } = await supabase
     .from("automations")
     .select(
-      "id, trigger_type, keywords, dm_message, comment_reply, status, created_at, require_follow, collect_field, button_title, button_url, followups"
+      "id, trigger_type, keywords, dm_message, comment_reply, status, created_at, require_follow, collect_field, button_title, button_url, followups, post_id"
     )
     .eq("user_id", user.id)
     .eq("ig_account_id", account.id)
@@ -64,6 +64,7 @@ export default async function AutomationsPage({ searchParams }) {
       automations={automations || []}
       igAccountId={account.id}
       igUsername={account.ig_username}
+      igAccessToken={account.access_token}
     />
   );
 }
