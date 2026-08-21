@@ -2,7 +2,7 @@
 
 import { createClient } from "../../../lib/supabase-client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const TRIGGER_LABELS = {
   comment: { icon: "💬", label: "Post/Reel comment" },
@@ -10,11 +10,39 @@ const TRIGGER_LABELS = {
   live_comment: { icon: "🔴", label: "Live comment" },
 };
 
-export default function AutomationsListClient({ automations: initialAutomations, igAccountId, igUsername }) {
+export default function AutomationsListClient({ automations: initialAutomations, igAccountId, igUsername, igAccessToken }) {
   const router = useRouter();
   const supabase = createClient();
   const [automations, setAutomations] = useState(initialAutomations);
   const [expandedId, setExpandedId] = useState(null);
+  const [postPreviews, setPostPreviews] = useState({}); // post_id -> { thumbnailUrl, caption } | "error" | "loading"
+
+  // Fetch a small thumbnail preview for any automation that's locked to a
+  // specific post, so the card shows which post it applies to (not just
+  // the generic "Post/Reel comment" trigger type).
+  useEffect(() => {
+    const postIds = automations
+      .filter((a) => a.post_id && !postPreviews[a.post_id])
+      .map((a) => a.post_id);
+    const uniqueIds = [...new Set(postIds)];
+    if (uniqueIds.length === 0 || !igAccessToken) return;
+
+    uniqueIds.forEach((id) => {
+      setPostPreviews((prev) => ({ ...prev, [id]: "loading" }));
+      fetch(`/api/instagram/media-single?id=${id}&token=${igAccessToken}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setPostPreviews((prev) => ({
+            ...prev,
+            [id]: data.error ? "error" : data,
+          }));
+        })
+        .catch(() => {
+          setPostPreviews((prev) => ({ ...prev, [id]: "error" }));
+        });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [automations, igAccessToken]);
 
   async function toggleStatus(id, currentStatus) {
     const newStatus = currentStatus === "active" ? "paused" : "active";
@@ -62,10 +90,22 @@ export default function AutomationsListClient({ automations: initialAutomations,
               const isAny = a.keywords?.includes("*");
               const isExpanded = expandedId === a.id;
               const followupCount = Array.isArray(a.followups) ? a.followups.length : 0;
+              const preview = a.post_id ? postPreviews[a.post_id] : null;
 
               return (
                 <div key={a.id} className="automation-card">
                   <div className="automation-top">
+                    {a.post_id && (
+                      <div className="post-preview-thumb">
+                        {preview && preview !== "loading" && preview !== "error" && preview.thumbnailUrl ? (
+                          <img src={preview.thumbnailUrl} alt="" />
+                        ) : preview === "error" ? (
+                          <span className="post-preview-fallback">🖼️</span>
+                        ) : (
+                          <span className="post-preview-fallback">⏳</span>
+                        )}
+                      </div>
+                    )}
                     <div className="automation-title-block">
                       <div className="automation-trigger-row">
                         <span className="trigger-chip">
@@ -78,6 +118,11 @@ export default function AutomationsListClient({ automations: initialAutomations,
                       <div className="automation-keywords">
                         {isAny ? "Triggers on any comment" : `Keyword: ${a.keywords?.join(", ")}`}
                       </div>
+                      {a.trigger_type === "comment" && (
+                        <div className="post-scope-note">
+                          {a.post_id ? "🔒 Locked to one post/reel" : "🌐 Applies to all posts"}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -115,6 +160,30 @@ export default function AutomationsListClient({ automations: initialAutomations,
                         <span className="detail-label">Trigger type</span>
                         <span className="detail-value">{trigger.icon} {trigger.label}</span>
                       </div>
+                      {a.trigger_type === "comment" && (
+                        <div className="detail-row">
+                          <span className="detail-label">Which post/reel</span>
+                          <span className="detail-value">
+                            {a.post_id ? (
+                              <>
+                                Locked to one specific post
+                                {preview && preview !== "loading" && preview !== "error" && preview.permalink && (
+                                  <>
+                                    {" "}
+                                    (
+                                    <a href={preview.permalink} target="_blank" rel="noreferrer" style={{ color: "#7c3aed" }}>
+                                      view on Instagram
+                                    </a>
+                                    )
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              "All posts and reels"
+                            )}
+                          </span>
+                        </div>
+                      )}
                       <div className="detail-row">
                         <span className="detail-label">Matches</span>
                         <span className="detail-value">
@@ -312,6 +381,38 @@ export default function AutomationsListClient({ automations: initialAutomations,
         }
         .automation-top {
           margin-bottom: 8px;
+          display: flex;
+          gap: 12px;
+          align-items: flex-start;
+        }
+        .post-preview-thumb {
+          width: 52px;
+          height: 52px;
+          border-radius: 8px;
+          border: 2px solid #14121f;
+          overflow: hidden;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f0eee8;
+        }
+        .post-preview-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .post-preview-fallback {
+          font-size: 18px;
+        }
+        .post-scope-note {
+          font-size: 11px;
+          color: #8a8496;
+          margin-top: 4px;
+        }
+        .automation-title-block {
+          flex: 1;
+          min-width: 0;
         }
         .automation-trigger-row {
           display: flex;
