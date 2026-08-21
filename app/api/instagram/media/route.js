@@ -1,44 +1,34 @@
-import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+// Fetches a single post's details (thumbnail, caption) by media ID, for
+// showing a small preview next to a post-locked automation in the list.
+import { NextResponse } from "next/server";
 
 export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const mediaId = searchParams.get("id");
+  const accessToken = searchParams.get("token");
+
+  if (!mediaId || !accessToken) {
+    return NextResponse.json({ error: "Missing id or token" }, { status: 400 });
+  }
+
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-
-    // 1. Get logged-in user session
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized user session' }, { status: 401 });
-    }
-
-    // 2. Fetch Instagram account details from database
-    // (Note: Agar tumhari table ka naam kuch aur hai jaise 'connected_accounts', toh yahan change kar lena)
-    const { data: account, error: accountError } = await supabase
-      .from('instagram_accounts') 
-      .select('instagram_user_id, access_token')
-      .eq('user_id', user.id)
-      .single();
-
-    if (accountError || !account || !account.access_token) {
-      return NextResponse.json({ error: 'Instagram token not found in database' }, { status: 400 });
-    }
-
-    // 3. Fetch Posts/Reels from Meta Graph API
-    const igRes = await fetch(
-      `https://graph.facebook.com/v18.0/${account.instagram_user_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&access_token=${account.access_token}`
+    const fields = "id,caption,media_type,media_url,thumbnail_url,permalink";
+    const res = await fetch(
+      `https://graph.instagram.com/${mediaId}?fields=${fields}&access_token=${accessToken}`
     );
+    const data = await res.json();
 
-    const igData = await igRes.json();
-
-    if (igData.error) {
-      return NextResponse.json({ error: igData.error.message }, { status: 400 });
+    if (data.error) {
+      return NextResponse.json({ error: data.error.message }, { status: 502 });
     }
 
-    return NextResponse.json({ posts: igData.data || [] });
+    return NextResponse.json({
+      id: data.id,
+      caption: data.caption || "",
+      thumbnailUrl: data.media_type === "VIDEO" ? data.thumbnail_url : data.media_url,
+      permalink: data.permalink,
+    });
   } catch (err) {
-    console.error('Media fetch error:', err);
-    return NextResponse.json({ error: 'Internal server error while fetching media' }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch post" }, { status: 500 });
   }
 }
