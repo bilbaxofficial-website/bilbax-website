@@ -52,7 +52,9 @@ export default async function AutomationsPage({ searchParams }) {
 
   const { data: automations } = await supabase
     .from("automations")
-    .select("id, keywords, dm_message, status, created_at")
+    .select(
+      "id, trigger_type, keywords, dm_message, comment_reply, status, created_at, require_follow, collect_field, button_title, button_url, followups"
+    )
     .eq("user_id", user.id)
     .eq("ig_account_id", account.id)
     .order("created_at", { ascending: false });
