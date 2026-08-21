@@ -4,10 +4,17 @@ import { createClient } from "../../../lib/supabase-client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+const TRIGGER_LABELS = {
+  comment: { icon: "💬", label: "Post/Reel comment" },
+  story_reply: { icon: "📖", label: "Story reply" },
+  live_comment: { icon: "🔴", label: "Live comment" },
+};
+
 export default function AutomationsListClient({ automations: initialAutomations, igAccountId, igUsername }) {
   const router = useRouter();
   const supabase = createClient();
   const [automations, setAutomations] = useState(initialAutomations);
+  const [expandedId, setExpandedId] = useState(null);
 
   async function toggleStatus(id, currentStatus) {
     const newStatus = currentStatus === "active" ? "paused" : "active";
@@ -50,35 +57,142 @@ export default function AutomationsListClient({ automations: initialAutomations,
           </div>
         ) : (
           <div className="automation-list">
-            {automations.map((a) => (
-              <div key={a.id} className="automation-card">
-                <div className="automation-top">
-                  <div className="automation-keywords">
-                    {a.keywords.includes("*")
-                      ? "Any comment"
-                      : a.keywords.join(", ")}
+            {automations.map((a) => {
+              const trigger = TRIGGER_LABELS[a.trigger_type] || TRIGGER_LABELS.comment;
+              const isAny = a.keywords?.includes("*");
+              const isExpanded = expandedId === a.id;
+              const followupCount = Array.isArray(a.followups) ? a.followups.length : 0;
+
+              return (
+                <div key={a.id} className="automation-card">
+                  <div className="automation-top">
+                    <div className="automation-title-block">
+                      <div className="automation-trigger-row">
+                        <span className="trigger-chip">
+                          {trigger.icon} {trigger.label}
+                        </span>
+                        <span className={`status-pill ${a.status}`}>
+                          {a.status === "active" ? "Active" : "Paused"}
+                        </span>
+                      </div>
+                      <div className="automation-keywords">
+                        {isAny ? "Triggers on any comment" : `Keyword: ${a.keywords?.join(", ")}`}
+                      </div>
+                    </div>
                   </div>
-                  <span className={`status-pill ${a.status}`}>
-                    {a.status === "active" ? "Active" : "Paused"}
-                  </span>
-                </div>
-                <div className="automation-message">"{a.dm_message}"</div>
-                <div className="automation-actions">
+
+                  <div className="automation-message">"{a.dm_message}"</div>
+
+                  {/* Quick glance badges - always visible */}
+                  <div className="badge-row">
+                    {a.require_follow && <span className="badge badge-follow">🔒 Follow gate</span>}
+                    {a.collect_field && (
+                      <span className="badge badge-collect">
+                        📋 Collects {a.collect_field}
+                      </span>
+                    )}
+                    {a.button_title && <span className="badge badge-button">🔗 {a.button_title}</span>}
+                    {followupCount > 0 && (
+                      <span className="badge badge-followup">
+                        ⏰ {followupCount} follow-up{followupCount > 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {!a.require_follow && !a.collect_field && !a.button_title && followupCount === 0 && (
+                      <span className="badge badge-simple">Simple DM, no extras</span>
+                    )}
+                  </div>
+
                   <button
-                    className="action-btn"
-                    onClick={() => toggleStatus(a.id, a.status)}
+                    className="details-toggle"
+                    onClick={() => setExpandedId(isExpanded ? null : a.id)}
                   >
-                    {a.status === "active" ? "Pause" : "Activate"}
+                    {isExpanded ? "Hide details ▲" : "View full details ▼"}
                   </button>
-                  <button
-                    className="action-btn delete"
-                    onClick={() => deleteAutomation(a.id)}
-                  >
-                    Delete
-                  </button>
+
+                  {isExpanded && (
+                    <div className="details-panel">
+                      <div className="detail-row">
+                        <span className="detail-label">Trigger type</span>
+                        <span className="detail-value">{trigger.icon} {trigger.label}</span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Matches</span>
+                        <span className="detail-value">
+                          {isAny ? "Any comment/reply" : a.keywords?.join(", ") || "—"}
+                        </span>
+                      </div>
+                      {a.comment_reply && (
+                        <div className="detail-row">
+                          <span className="detail-label">Public reply</span>
+                          <span className="detail-value">"{a.comment_reply}"</span>
+                        </div>
+                      )}
+                      <div className="detail-row">
+                        <span className="detail-label">Follow gate</span>
+                        <span className="detail-value">
+                          {a.require_follow ? "Required before sending" : "Off"}
+                        </span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Data collection</span>
+                        <span className="detail-value">
+                          {a.collect_field ? `Asks for ${a.collect_field}` : "Off"}
+                        </span>
+                      </div>
+                      <div className="detail-row">
+                        <span className="detail-label">Final message</span>
+                        <span className="detail-value">"{a.dm_message}"</span>
+                      </div>
+                      {a.button_title && (
+                        <div className="detail-row">
+                          <span className="detail-label">Button</span>
+                          <span className="detail-value">
+                            "{a.button_title}" → {a.button_url}
+                          </span>
+                        </div>
+                      )}
+                      {followupCount > 0 && (
+                        <div className="detail-row">
+                          <span className="detail-label">Follow-ups</span>
+                          <span className="detail-value">
+                            {a.followups.map((f, i) => (
+                              <div key={i} className="followup-detail-item">
+                                #{i + 1} after {f.after_minutes >= 60 ? `${Math.round(f.after_minutes / 60)}h` : `${f.after_minutes}m`}: "{f.message}"
+                              </div>
+                            ))}
+                          </span>
+                        </div>
+                      )}
+                      <div className="detail-row">
+                        <span className="detail-label">Created</span>
+                        <span className="detail-value">
+                          {new Date(a.created_at).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="automation-actions">
+                    <button
+                      className="action-btn"
+                      onClick={() => toggleStatus(a.id, a.status)}
+                    >
+                      {a.status === "active" ? "Pause" : "Activate"}
+                    </button>
+                    <button
+                      className="action-btn delete"
+                      onClick={() => deleteAutomation(a.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>
@@ -197,10 +311,22 @@ export default function AutomationsListClient({ automations: initialAutomations,
           box-shadow: 4px 4px 0 #00d4b8;
         }
         .automation-top {
+          margin-bottom: 8px;
+        }
+        .automation-trigger-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
+        }
+        .trigger-chip {
+          font-size: 11px;
+          font-weight: 800;
+          color: #7c3aed;
+          background: #f5f0ff;
+          border: 1.5px solid #7c3aed;
+          padding: 3px 10px;
+          border-radius: 999px;
         }
         .automation-keywords {
           font-weight: 800;
@@ -226,8 +352,83 @@ export default function AutomationsListClient({ automations: initialAutomations,
           color: #4a4658;
           font-size: 13px;
           font-style: italic;
-          margin-bottom: 14px;
+          margin-bottom: 12px;
           line-height: 1.4;
+        }
+        .badge-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 12px;
+        }
+        .badge {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1.5px solid #14121f;
+        }
+        .badge-follow {
+          background: #ffd23f;
+        }
+        .badge-collect {
+          background: #00d4b8;
+        }
+        .badge-button {
+          background: #ff4fa3;
+          color: #fff;
+        }
+        .badge-followup {
+          background: #7c3aed;
+          color: #fff;
+        }
+        .badge-simple {
+          background: #f0eee8;
+          color: #8a8496;
+          border-color: #d8d4c8;
+        }
+        .details-toggle {
+          background: none;
+          border: none;
+          color: #7c3aed;
+          font-weight: 700;
+          font-size: 12px;
+          cursor: pointer;
+          padding: 4px 0;
+          margin-bottom: 8px;
+        }
+        .details-panel {
+          background: #fbf7ee;
+          border: 2px dashed #14121f;
+          border-radius: 10px;
+          padding: 14px 16px;
+          margin-bottom: 14px;
+        }
+        .detail-row {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 8px 0;
+          border-bottom: 1px solid rgba(20, 18, 31, 0.08);
+          font-size: 13px;
+        }
+        .detail-row:last-child {
+          border-bottom: none;
+        }
+        .detail-label {
+          font-weight: 800;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          color: #8a8496;
+        }
+        .detail-value {
+          color: #14121f;
+          line-height: 1.5;
+          word-break: break-word;
+        }
+        .followup-detail-item {
+          margin-top: 4px;
         }
         .automation-actions {
           display: flex;
