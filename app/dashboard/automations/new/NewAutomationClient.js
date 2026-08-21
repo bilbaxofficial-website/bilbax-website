@@ -121,7 +121,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
       trigger_type: eventType,
       keywords: keywordArray,
       dm_message: dmMessage,
-      comment_reply: commentReply || null,
+      comment_reply: eventType === "comment" ? (commentReply || null) : null,
       status: "active",
       require_follow: requireFollow,
       follow_prompt: requireFollow ? followPrompt : null,
@@ -542,17 +542,19 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                   )}
                 </div>
 
-                <div className="field-group">
-                  <label className="field-label">Public comment reply (optional)</label>
-                  <input
-                    type="text"
-                    className="field-input"
-                    placeholder="Sent you a DM! 📩"
-                    value={commentReply}
-                    onChange={(e) => setCommentReply(e.target.value)}
-                  />
-                  <p className="hint">Shown publicly under their comment. Leave blank to skip.</p>
-                </div>
+                {eventType === "comment" && (
+                  <div className="field-group">
+                    <label className="field-label">Public comment reply (optional)</label>
+                    <input
+                      type="text"
+                      className="field-input"
+                      placeholder="Sent you a DM! 📩"
+                      value={commentReply}
+                      onChange={(e) => setCommentReply(e.target.value)}
+                    />
+                    <p className="hint">Shown publicly under their comment. Leave blank to skip.</p>
+                  </div>
+                )}
               </>
             )}
 
@@ -596,7 +598,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                     </div>
                   </li>
 
-                  {commentReply && (
+                  {eventType === "comment" && commentReply && (
                     <li className="review-item">
                       <div className="review-num">2</div>
                       <div className="review-text">
