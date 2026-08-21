@@ -1,66 +1,44 @@
-// Fetches the connected Instagram account's own posts and reels, so the
-// automation form can show a picker grid. Stories are NOT included here -
-// Instagram's API keeps stories on a separate edge (/me/stories) since
-// they expire after 24h and work differently. See the stories route for that.
-import { NextResponse } from "next/server";
-import { createClient } from "../../../../lib/supabase-server";
+import { NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const accountId = searchParams.get("account");
-
-  if (!accountId) {
-    return NextResponse.json({ error: "Missing account id" }, { status: 400 });
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  // Security: only let a user fetch media for an Instagram account that
-  // actually belongs to them.
-  const { data: account } = await supabase
-    .from("instagram_accounts")
-    .select("id, access_token")
-    .eq("id", accountId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!account) {
-    return NextResponse.json({ error: "Account not found" }, { status: 404 });
-  }
-
   try {
-    const fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp";
-    const res = await fetch(
-      `https://graph.instagram.com/me/media?fields=${fields}&limit=30&access_token=${account.access_token}`
-    );
-    const data = await res.json();
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    if (data.error) {
-      console.error("Instagram media fetch error:", data.error);
-      return NextResponse.json({ error: data.error.message }, { status: 502 });
+    // 1. Get logged-in user session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized user session' }, { status: 401 });
     }
 
-    // Normalize so the picker always has a thumbnail to show, even for
-    // videos/reels (which use thumbnail_url instead of media_url).
-    const posts = (data.data || []).map((item) => ({
-      id: item.id,
-      caption: item.caption || "",
-      mediaType: item.media_type, // IMAGE | VIDEO | CAROUSEL_ALBUM
-      thumbnailUrl: item.media_type === "VIDEO" ? item.thumbnail_url : item.media_url,
-      permalink: item.permalink,
-      timestamp: item.timestamp,
-    }));
+    // 2. Fetch Instagram account details from database
+    // (Note: Agar tumhari table ka naam kuch aur hai jaise 'connected_accounts', toh yahan change kar lena)
+    const { data: account, error: accountError } = await supabase
+      .from('instagram_accounts') 
+      .select('instagram_user_id, access_token')
+      .eq('user_id', user.id)
+      .single();
 
-    return NextResponse.json({ posts });
+    if (accountError || !account || !account.access_token) {
+      return NextResponse.json({ error: 'Instagram token not found in database' }, { status: 400 });
+    }
+
+    // 3. Fetch Posts/Reels from Meta Graph API
+    const igRes = await fetch(
+      `https://graph.facebook.com/v18.0/${account.instagram_user_id}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink&access_token=${account.access_token}`
+    );
+
+    const igData = await igRes.json();
+
+    if (igData.error) {
+      return NextResponse.json({ error: igData.error.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ posts: igData.data || [] });
   } catch (err) {
-    console.error("Instagram media fetch exception:", err);
-    return NextResponse.json({ error: "Failed to fetch posts" }, { status: 500 });
+    console.error('Media fetch error:', err);
+    return NextResponse.json({ error: 'Internal server error while fetching media' }, { status: 500 });
   }
 }
