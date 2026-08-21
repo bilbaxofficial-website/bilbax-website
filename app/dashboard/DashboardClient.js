@@ -274,6 +274,12 @@ export default function DashboardClient({ user, igAccounts = [] }) {
               >
                 View all automations →
               </a>
+              <a
+                href={`/dashboard/analytics?account=${selectedAccount.id}`}
+                className="view-all-link"
+              >
+                View analytics →
+              </a>
             </div>
           </>
         )}
