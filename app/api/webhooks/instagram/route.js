@@ -234,8 +234,9 @@ export async function POST(request) {
         const commenterId = commentVal.from?.id;
         const commenterUsername = commentVal.from?.username;
         const commentId = commentVal.id;
+        const mediaId = commentVal.media?.id || null;
 
-        console.log(`💬 ${isLive ? "LIVE " : ""}COMMENT DETECTED: "${commentText}" from User IG_ID: ${commenterId}`);
+        console.log(`💬 ${isLive ? "LIVE " : ""}COMMENT DETECTED: "${commentText}" from User IG_ID: ${commenterId} | on media: ${mediaId}`);
         console.log(`🔍 SEARCHING DB FOR ACCOUNT ID: "${igAccountId}"`);
 
         const { data: account, error: accountErr } = await supabase
@@ -267,7 +268,20 @@ export async function POST(request) {
           continue;
         }
 
-        const matched = automations.find((a) => {
+        // Only consider automations that either apply to ALL posts
+        // (post_id is null) or specifically target the post this
+        // comment was made on (post_id matches media.id).
+        const eligibleForThisPost = automations.filter((a) => {
+          if (!a.post_id) return true; // "all posts" automation
+          return mediaId && a.post_id === mediaId;
+        });
+
+        if (eligibleForThisPost.length === 0) {
+          console.log(`🛑 STOP: Automations exist, but none apply to media ${mediaId}`);
+          continue;
+        }
+
+        const matched = eligibleForThisPost.find((a) => {
           const kwList = Array.isArray(a.keywords) ? a.keywords : [];
           if (kwList.includes("*")) return true;
           return kwList.some((kw) => commentText.toLowerCase().includes(String(kw).toLowerCase().trim()));
