@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../../lib/supabase-client";
 
@@ -18,6 +18,35 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
   const [eventType, setEventType] = useState("comment"); // "comment" | "story_reply"
   const [triggerType, setTriggerType] = useState("keyword"); // "keyword" | "any"
   const [keywords, setKeywords] = useState("");
+
+  // Step 1b: which specific post/reel this automation applies to.
+  // Only relevant when eventType === "comment" - story_reply automations
+  // apply to whichever story the person replies to, there's no picker for it.
+  const [posts, setPosts] = useState([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState("");
+  const [selectedPostId, setSelectedPostId] = useState(null); // null = "all posts"
+
+  useEffect(() => {
+    if (eventType !== "comment") return;
+    if (posts.length > 0 || postsLoading) return; // already fetched or fetching
+
+    setPostsLoading(true);
+    setPostsError("");
+    fetch(`/api/instagram/media?account=${igAccountId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setPostsError("Couldn't load your posts. You can still apply this to all posts.");
+        } else {
+          setPosts(data.posts || []);
+        }
+      })
+      .catch(() => {
+        setPostsError("Couldn't load your posts. You can still apply this to all posts.");
+      })
+      .finally(() => setPostsLoading(false));
+  }, [eventType, igAccountId]);
 
   // Step 2: gate
   const [requireFollow, setRequireFollow] = useState(false);
@@ -88,7 +117,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
     const { error: insertError } = await supabase.from("automations").insert({
       user_id: user.id,
       ig_account_id: igAccountId,
-      post_id: null,
+      post_id: eventType === "comment" ? selectedPostId : null,
       trigger_type: eventType,
       keywords: keywordArray,
       dm_message: dmMessage,
@@ -224,6 +253,53 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                       {eventType === "story_reply" && " Matched against the text someone types when replying to your story."}
                       {eventType === "live_comment" && " Matched against comments posted while you're live."}
                     </p>
+                  </div>
+                )}
+
+                {/* Post/Reel picker - only for the "comment" trigger type.
+                    Story replies and live comments don't have a picker:
+                    a story reply always applies to whichever story someone
+                    replies to, and a live comment applies to whichever
+                    broadcast is currently live. */}
+                {eventType === "comment" && (
+                  <div className="field-group">
+                    <label className="field-label">Which post or reel?</label>
+                    <p className="hint" style={{ marginTop: 0, marginBottom: 10 }}>
+                      Leave on "All posts" to catch this keyword everywhere, or lock it to one post/reel.
+                    </p>
+
+                    <button
+                      type="button"
+                      className={`pill post-all-pill ${selectedPostId === null ? "selected" : ""}`}
+                      onClick={() => setSelectedPostId(null)}
+                      style={{ marginBottom: 12 }}
+                    >
+                      🌐 All posts
+                    </button>
+
+                    {postsLoading && <div className="posts-status">Loading your posts...</div>}
+                    {postsError && <div className="posts-status posts-status-error">{postsError}</div>}
+
+                    {!postsLoading && !postsError && posts.length > 0 && (
+                      <div className="post-grid">
+                        {posts.map((p) => (
+                          <button
+                            type="button"
+                            key={p.id}
+                            className={`post-tile ${selectedPostId === p.id ? "selected" : ""}`}
+                            onClick={() => setSelectedPostId(p.id)}
+                            style={{ backgroundImage: p.thumbnailUrl ? `url(${p.thumbnailUrl})` : "none" }}
+                            title={p.caption?.slice(0, 60) || "No caption"}
+                          >
+                            {p.mediaType === "VIDEO" && <span className="post-tile-badge">▶</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {!postsLoading && !postsError && posts.length === 0 && (
+                      <div className="posts-status">No posts found yet - this will apply to all posts.</div>
+                    )}
                   </div>
                 )}
               </>
@@ -495,7 +571,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                         triggerType === "keyword" ? (
                           <>Someone comments <span className="chip-kw">{keywords || "your keyword"}</span></>
                         ) : (
-                          "Someone comments anything on this post"
+                          "Someone comments anything"
                         )
                       )}
                       {eventType === "story_reply" && (
@@ -511,6 +587,11 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                         ) : (
                           "Someone comments anything during your Live"
                         )
+                      )}
+                      {eventType === "comment" && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: "#8a8496" }}>
+                          on {selectedPostId ? "the selected post/reel" : "any of your posts"}
+                        </div>
                       )}
                     </div>
                   </li>
@@ -775,6 +856,51 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         .pill.selected {
           background: #ffd23f;
           box-shadow: 4px 4px 0 #14121f;
+        }
+        .post-all-pill {
+          width: 100%;
+        }
+        .posts-status {
+          font-size: 12px;
+          color: #8a8496;
+          padding: 10px 0;
+        }
+        .posts-status-error {
+          color: #ff4fa3;
+        }
+        .post-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+        }
+        .post-tile {
+          position: relative;
+          aspect-ratio: 1;
+          border: 3px solid #14121f;
+          border-radius: 8px;
+          background-size: cover;
+          background-position: center;
+          background-color: #eee;
+          cursor: pointer;
+          padding: 0;
+        }
+        .post-tile.selected {
+          outline: 3px solid #00d4b8;
+          outline-offset: 2px;
+        }
+        .post-tile-badge {
+          position: absolute;
+          top: 4px;
+          right: 4px;
+          background: rgba(20, 18, 31, 0.75);
+          color: #fff;
+          font-size: 10px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .field-group {
           margin-bottom: 18px;
