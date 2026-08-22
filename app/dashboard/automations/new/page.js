@@ -2,10 +2,67 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "../../../../lib/supabase-client";
 
 export default function CreateAutomationPage() {
-  const [trigger, setTrigger] = useState("story_mention");
-  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const supabase = createClient();
+
+  const [triggerType, setTriggerType] = useState("story_mention");
+  const [messageContent, setMessageContent] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleSave(e) {
+    e.preventDefault();
+    if (!messageContent.trim()) {
+      setErrorMsg("Please write a message content!");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg("");
+
+    // Get current user and their connected instagram account
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const { data: igAcc } = await supabase
+      .from("instagram_accounts")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .single();
+
+    if (!igAcc) {
+      setErrorMsg("Please connect an Instagram account first!");
+      setLoading(false);
+      return;
+    }
+
+    // Insert automation into database
+    const { error } = await supabase.from("automations").insert({
+      user_id: user.id,
+      instagram_account_id: igAcc.id,
+      trigger_type: triggerType,
+      message: messageContent.trim(),
+      is_active: true,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErrorMsg("Error saving automation: " + error.message);
+    } else {
+      // Success! Redirect back to dashboard
+      router.push("/dashboard");
+      router.refresh();
+    }
+  }
 
   return (
     <div className="dash-container">
@@ -22,14 +79,16 @@ export default function CreateAutomationPage() {
       </header>
 
       {/* Main Form Card */}
-      <div className="brutal-card">
+      <form onSubmit={handleSave} className="brutal-card">
+        {errorMsg && <div className="error-box">{errorMsg}</div>}
+
         <div className="form-group">
           <label className="brutal-label">Select Trigger</label>
           <p className="help-text">When should this message be sent?</p>
           <select 
             className="brutal-input" 
-            value={trigger} 
-            onChange={(e) => setTrigger(e.target.value)}
+            value={triggerType} 
+            onChange={(e) => setTriggerType(e.target.value)}
           >
             <option value="story_mention">When someone mentions me in a Story</option>
             <option value="new_follower">When I get a new Follower</option>
@@ -44,17 +103,17 @@ export default function CreateAutomationPage() {
             className="brutal-input textarea"
             rows="4"
             placeholder="Hey! Thanks for the mention! 🎉"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            value={messageContent}
+            onChange={(e) => setMessageContent(e.target.value)}
           ></textarea>
         </div>
 
         <div className="form-actions">
-          <button className="brutal-btn primary">
-            Save Automation
+          <button type="submit" className="brutal-btn primary" disabled={loading}>
+            {loading ? "Saving..." : "Save Automation"}
           </button>
         </div>
-      </div>
+      </form>
 
       <style jsx>{`
         .dash-container {
@@ -92,6 +151,16 @@ export default function CreateAutomationPage() {
           padding: 30px;
           box-shadow: 6px 6px 0 #14121f;
           max-width: 800px;
+        }
+
+        .error-box {
+          background-color: #ff4fa3;
+          color: #fff;
+          border: 2px solid #14121f;
+          padding: 12px;
+          border-radius: 8px;
+          font-weight: 700;
+          margin-bottom: 20px;
         }
 
         .form-group {
