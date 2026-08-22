@@ -118,7 +118,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
             </p>
             <button onClick={handleConnectInstagram} className="connect-btn">
               Connect Instagram
-              <span className="btn-arrow">â†’</span>
+              <span className="btn-arrow">→</span>
             </button>
             <div className="hero-footnote">
               Uses Meta's official Instagram API. Bilbax never sees your
@@ -165,7 +165,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                 >
                   Disconnect
                 </button>
-                <div className="connected-check">âœ“</div>
+                <div className="connected-check">✓</div>
               </div>
             </div>
 
@@ -183,13 +183,13 @@ export default function DashboardClient({ user, igAccounts = [] }) {
             {/* Welcome Message settings card */}
             <div className="welcome-card">
               <div className="welcome-card-left">
-                <div className="welcome-icon">ðŸ‘‹</div>
+                <div className="welcome-icon">👋</div>
                 <div>
                   <div className="welcome-title">Welcome Message</div>
                   <div className="welcome-sub">
                     {selectedAccount.welcome_enabled
-                      ? "On â€” greets anyone who DMs you for the first time"
-                      : "Off â€” greet first-time DM senders automatically"}
+                      ? "On — greets anyone who DMs you for the first time"
+                      : "Off — greet first-time DM senders automatically"}
                   </div>
                 </div>
               </div>
@@ -204,7 +204,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                   <h3>Welcome Message</h3>
                   <p className="welcome-modal-sub">
                     Sent once to anyone who DMs @{selectedAccount.ig_username} for the
-                    first time â€” no comment or story needed. No follow gate, no data
+                    first time — no comment or story needed. No follow gate, no data
                     collection, just a simple hello.
                   </p>
 
@@ -221,7 +221,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                   <textarea
                     className="w-textarea"
                     rows={3}
-                    placeholder="Hey! Thanks for reaching out ðŸ‘‹"
+                    placeholder="Hey! Thanks for reaching out 👋"
                     value={welcomeMessage}
                     onChange={(e) => setWelcomeMessage(e.target.value)}
                   />
@@ -272,13 +272,13 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                 href={`/dashboard/automations?account=${selectedAccount.id}`}
                 className="view-all-link"
               >
-                View all automations â†’
+                View all automations →
               </a>
               <a
                 href={`/dashboard/analytics?account=${selectedAccount.id}`}
                 className="view-all-link"
               >
-                View analytics â†’
+                View analytics →
               </a>
             </div>
           </>
