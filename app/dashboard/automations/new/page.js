@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
-import { createClient } from "../../lib/supabase-server";
-import DashboardClient from "./DashboardClient";
+import { createClient } from "../../../../lib/supabase-server";
+import NewAutomationClient from "./NewAutomationClient";
 
-export default async function DashboardPage() {
+export default async function NewAutomationPage({ searchParams }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -13,17 +12,28 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Fetch ALL Instagram accounts connected to this user (up to 5).
-  // Ordered oldest-first so the switcher tabs stay in a stable order.
-  const { data: igAccounts } = await supabase
-    .from("instagram_accounts")
-    .select("id, ig_username, connected_at, welcome_enabled, welcome_message, welcome_button_title, welcome_button_url")
-    .eq("user_id", user.id)
-    .order("connected_at", { ascending: true });
+  const params = await searchParams;
+  const requestedAccountId = params?.account;
 
-  return (
-    <Suspense fallback={null}>
-      <DashboardClient user= {user} igAccounts={igAccounts || []} />
-    </Suspense>
-  );
+  // Build the query, filtering to a specific account if one was requested
+  // in the URL (e.g. ?account=<id> from the dashboard's account switcher).
+  let query = supabase
+    .from("instagram_accounts")
+    .select("id, ig_username")
+    .eq("user_id", user.id);
+
+  if (requestedAccountId) {
+    query = query.eq("id", requestedAccountId);
+  }
+
+  const { data: igAccount } = await query
+    .order("connected_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!igAccount) {
+    redirect("/dashboard");
+  }
+
+  return <NewAutomationClient igAccountId={igAccount.id} igUsername={igAccount.ig_username} />;
 }
