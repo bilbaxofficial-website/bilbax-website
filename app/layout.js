@@ -1,36 +1,15 @@
-import { Space_Grotesk, DM_Mono, Syne } from 'next/font/google';
-import './globals.css';
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-const dmMono = DM_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-mono',
-  display: 'swap',
-});
-
-const syne = Syne({
-  subsets: ['latin'],
-  weight: ['600', '700', '800'],
-  variable: '--font-display',
-  display: 'swap',
-});
-
-export const metadata = {
-  title: "Bilbax â€” Instagram DM Automation",
-  description: "Turn Instagram comments into automatic DMs. Capture leads, reply instantly, and grow without code.",
-};
-
-export default function RootLayout({ children }) {
+export default function DashboardLayout({ children }) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${dmMono.variable} ${syne.variable}`}>
-      <body>{children}</body>
-    </html>
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+      <aside className="w-full md:w-64 bg-white border-r-4 border-black p-6">
+        <h2 className="text-3xl font-black mb-8">Bilbax</h2>
+        <nav className="flex flex-col gap-4">
+          <a href="/dashboard" className="font-bold text-lg hover:underline">Dashboard</a>
+        </nav>
+      </aside>
+      <main className="flex-1 p-6 md:p-10">
+        {children}
+      </main>
+    </div>
   );
 }
