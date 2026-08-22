@@ -115,7 +115,6 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
 
   return (
     <div className="page-shell">
-      <div className="noise-overlay" />
       <header className="page-header">
         <a href="/" className="page-logo">bilbax</a>
         <a href={dashboardHref} className="back-link">← Back to dashboard</a>
@@ -349,13 +348,6 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
             radial-gradient(circle at 90% 15%, rgba(124, 58, 237, 0.10), transparent 45%),
             radial-gradient(circle at 50% 100%, rgba(0, 212, 184, 0.08), transparent 50%),
             #fff8ed;
-        }
-        .noise-overlay {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          opacity: 0.4;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
         }
         .page-header {
           display: flex;
