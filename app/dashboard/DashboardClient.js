@@ -264,22 +264,26 @@ export default function DashboardClient({ user, igAccounts = [] }) {
               </p>
               <a
                 href={`/dashboard/automations/new?account=${selectedAccount.id}`}
-                className="connect-btn"
+                className="connect-btn next-card-cta"
               >
                 Create automation
               </a>
-              <a
-                href={`/dashboard/automations?account=${selectedAccount.id}`}
-                className="view-all-link"
-              >
-                View all automations →
-              </a>
-              <a
-                href={`/dashboard/analytics?account=${selectedAccount.id}`}
-                className="view-all-link"
-              >
-                View analytics →
-              </a>
+              <div className="next-card-row">
+                <a
+                  href={`/dashboard/automations?account=${selectedAccount.id}`}
+                  className="secondary-btn"
+                >
+                  View all automations
+                  <span className="btn-arrow-sm">→</span>
+                </a>
+                <a
+                  href={`/dashboard/analytics?account=${selectedAccount.id}`}
+                  className="secondary-btn"
+                >
+                  View analytics
+                  <span className="btn-arrow-sm">→</span>
+                </a>
+              </div>
             </div>
           </>
         )}
@@ -784,13 +788,54 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           line-height: 1.6;
           margin: 0 0 24px;
         }
-        .view-all-link {
-          display: block;
-          margin-top: 16px;
-          color: #7c3aed;
-          font-weight: 700;
-          font-size: 13px;
+        .next-card-cta {
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .next-card-row {
+          display: flex;
+          gap: 12px;
+          margin-top: 14px;
+        }
+        .secondary-btn {
+          flex: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: #fff8ed;
+          color: #14121f;
+          border: 3px solid #14121f;
+          border-radius: 999px;
+          padding: 13px 18px;
+          font-weight: 800;
+          font-size: 14px;
+          cursor: pointer;
+          box-shadow: 3px 3px 0 #14121f;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
           text-decoration: none;
+          white-space: nowrap;
+        }
+        .secondary-btn:hover {
+          background: #fff;
+          transform: translate(-2px, -2px);
+          box-shadow: 5px 5px 0 #14121f;
+        }
+        .secondary-btn:active {
+          transform: translate(0, 0);
+          box-shadow: 1px 1px 0 #14121f;
+        }
+        .btn-arrow-sm {
+          font-size: 14px;
+          transition: transform 0.15s ease;
+        }
+        .secondary-btn:hover .btn-arrow-sm {
+          transform: translateX(3px);
+        }
+        @media (max-width: 480px) {
+          .next-card-row {
+            flex-direction: column;
+          }
         }
       `}</style>
     </div>
