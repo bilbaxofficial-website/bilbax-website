@@ -22,7 +22,7 @@ function timeAgo(dateStr) {
 
 export default function AnalyticsClient({ accounts, selectedAccountId, automations, logs, accessTokenByAccount }) {
   const [activeTab, setActiveTab] = useState(selectedAccountId);
-  const [range, setRange] = useState("7d"); // "7d" | "30d" | "all"
+  const [range, setRange] = useState("today"); // "today" | "yesterday" | "all"
   const [postPreviews, setPostPreviews] = useState({});
 
   const isOverview = activeTab === "overview";
@@ -45,17 +45,30 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
 
   const filteredLogs = useMemo(() => {
     if (range === "all") return scopedLogs;
-    const days = range === "7d" ? 7 : 30;
-    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    return scopedLogs.filter((l) => new Date(l.created_at).getTime() >= cutoff);
+    
+    const now = new Date();
+    // Midnight of today
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    // Midnight of yesterday
+    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+
+    return scopedLogs.filter((l) => {
+      const logTime = new Date(l.created_at).getTime();
+      if (range === "today") return logTime >= startOfToday;
+      if (range === "yesterday") return logTime >= startOfYesterday && logTime < startOfToday;
+      return true;
+    });
   }, [scopedLogs, range]);
 
   const totalDMs = filteredLogs.filter((l) => l.dm_sent).length;
   const totalLeads = filteredLogs.filter((l) => l.collected_value).length;
   const activeAutomations = scopedAutomations.filter((a) => a.status === "active").length;
 
-  // Fetch thumbnails for post-locked automations (only relevant in
-  // single-account view, since Overview doesn't show per-automation cards).
+  // 50,000 Quota Logic for DMs
+  const dmQuotaLimit = 50000;
+  const dmQuotaPercent = Math.min((totalDMs / dmQuotaLimit) * 100, 100);
+
+  // Fetch thumbnails for post-locked automations
   useEffect(() => {
     if (isOverview) return;
     const token = accessTokenByAccount?.[activeTab];
@@ -103,15 +116,7 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
     return map;
   }, [automations]);
 
-  const accountById = useMemo(() => {
-    const map = new Map();
-    accounts.forEach((a) => map.set(a.id, a));
-    return map;
-  }, [accounts]);
-
-  const dashboardHref = isOverview
-    ? "/dashboard"
-    : `/dashboard?account=${activeTab}`;
+  const dashboardHref = isOverview ? "/dashboard" : `/dashboard?account=${activeTab}`;
 
   return (
     <div className="page-shell">
@@ -134,8 +139,8 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           {!isOverview && (
             <div className="range-tabs">
               {[
-                { key: "7d", label: "7 days" },
-                { key: "30d", label: "30 days" },
+                { key: "today", label: "Today" },
+                { key: "yesterday", label: "Yesterday" },
                 { key: "all", label: "All time" },
               ].map((r) => (
                 <button
@@ -150,7 +155,7 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           )}
         </div>
 
-        {/* Account switcher - only shown with 2+ accounts */}
+        {/* Account switcher */}
         {showSwitcher && (
           <div className="account-switcher">
             <button
@@ -171,28 +176,41 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           </div>
         )}
 
-        {/* Top stats */}
+        {/* Top stats - PRO SAAS REDESIGN */}
         <div className="stats-grid">
           <div className="stat-card stat-pink">
-            <div className="stat-card-inner">
-              <div className="stat-icon">📩</div>
-              <div className="stat-number">{totalDMs}</div>
-              <div className="stat-label">DMs sent</div>
+            <div className="stat-header">
+              <div className="stat-icon-wrap bg-pink-light">📩</div>
+              <div className="stat-label">DMs Sent</div>
+            </div>
+            <div className="stat-number">{totalDMs.toLocaleString()}</div>
+            
+            {/* Dynamic Quota Progress Bar */}
+            <div className="quota-container">
+              <div className="quota-bar-bg">
+                <div className="quota-bar-fill" style={{ width: `${dmQuotaPercent}%` }}></div>
+              </div>
+              <div className="quota-text">
+                <span>Usage</span>
+                <span>{dmQuotaLimit.toLocaleString()} limit</span>
+              </div>
             </div>
           </div>
+
           <div className="stat-card stat-teal">
-            <div className="stat-card-inner">
-              <div className="stat-icon">📋</div>
-              <div className="stat-number">{totalLeads}</div>
-              <div className="stat-label">Leads captured</div>
+            <div className="stat-header">
+              <div className="stat-icon-wrap bg-teal-light">📋</div>
+              <div className="stat-label">Leads Captured</div>
             </div>
+            <div className="stat-number">{totalLeads.toLocaleString()}</div>
           </div>
+
           <div className="stat-card stat-yellow">
-            <div className="stat-card-inner">
-              <div className="stat-icon">⚡</div>
-              <div className="stat-number">{activeAutomations}</div>
-              <div className="stat-label">Active automations</div>
+            <div className="stat-header">
+              <div className="stat-icon-wrap bg-yellow-light">⚡</div>
+              <div className="stat-label">Active Automations</div>
             </div>
+            <div className="stat-number">{activeAutomations}</div>
           </div>
         </div>
 
@@ -344,10 +362,10 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           position: relative;
           min-height: 100vh;
           background:
-            radial-gradient(circle at 10% 0%, rgba(255, 79, 163, 0.10), transparent 45%),
-            radial-gradient(circle at 90% 15%, rgba(124, 58, 237, 0.10), transparent 45%),
-            radial-gradient(circle at 50% 100%, rgba(0, 212, 184, 0.08), transparent 50%),
-            #fff8ed;
+            radial-gradient(circle at 10% 0%, rgba(255, 79, 163, 0.05), transparent 45%),
+            radial-gradient(circle at 90% 15%, rgba(124, 58, 237, 0.05), transparent 45%),
+            radial-gradient(circle at 50% 100%, rgba(0, 212, 184, 0.04), transparent 50%),
+            #fdfcfb; /* Cleaner SaaS background */
         }
         .page-header {
           display: flex;
@@ -417,29 +435,32 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           color: #6b6578;
           margin: 5px 0 0;
         }
+        
+        /* Updated Date Tabs - Professional Pill shape */
         .range-tabs {
           display: flex;
-          gap: 6px;
-          background: rgba(20, 18, 31, 0.05);
+          gap: 4px;
+          background: #fff;
           padding: 4px;
           border-radius: 999px;
-          border: 2px solid rgba(20, 18, 31, 0.1);
+          box-shadow: 0 4px 12px rgba(20, 18, 31, 0.04);
+          border: 1px solid rgba(20, 18, 31, 0.06);
         }
         .range-tab {
           border: none;
           border-radius: 999px;
-          padding: 7px 14px;
+          padding: 8px 16px;
           background: transparent;
           font-weight: 700;
           font-size: 12px;
           color: #6b6578;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s ease;
         }
         .range-tab.active {
           background: #14121f;
-          color: #fff8ed;
-          box-shadow: 0 2px 6px rgba(20, 18, 31, 0.25);
+          color: #fff;
+          box-shadow: 0 4px 10px rgba(20, 18, 31, 0.15);
         }
 
         .account-switcher {
@@ -448,115 +469,136 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           gap: 8px;
           margin-bottom: 24px;
           padding-bottom: 20px;
-          border-bottom: 2px dashed rgba(20, 18, 31, 0.15);
+          border-bottom: 1px dashed rgba(20, 18, 31, 0.15);
         }
         .switcher-tab {
-          border: 2.5px solid #14121f;
+          border: 1.5px solid rgba(20,18,31,0.1);
           border-radius: 999px;
           padding: 9px 18px;
           background: #fff;
-          color: #14121f;
-          font-weight: 800;
+          color: #6b6578;
+          font-weight: 700;
           font-size: 13px;
           cursor: pointer;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          transition: all 0.2s ease;
         }
         .switcher-tab:hover {
-          transform: translateY(-1px);
+          background: #fdfcfb;
+          color: #14121f;
         }
         .switcher-tab.active {
+          border-color: #14121f;
           background: #14121f;
-          color: #fff8ed;
-          box-shadow: 3px 3px 0 #ffd23f;
+          color: #fff;
+          box-shadow: 0 4px 12px rgba(20, 18, 31, 0.15);
         }
         .overview-tab {
-          background: linear-gradient(135deg, #f5f0ff, #ffe0ef);
-        }
-        .overview-tab.active {
-          background: linear-gradient(135deg, #7c3aed, #ff4fa3);
-          box-shadow: 3px 3px 0 #14121f;
+          background: #fdfcfb;
         }
 
+        /* REDESIGNED STAT CARDS - SaaS Look with Maximalist Accents */
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          margin-bottom: 34px;
+          gap: 16px;
+          margin-bottom: 36px;
         }
         .stat-card {
-          border-radius: 20px;
-          padding: 3px;
-          position: relative;
-        }
-        .stat-card-inner {
-          border: 2.5px solid #14121f;
-          border-radius: 18px;
-          padding: 22px 12px 18px;
-          text-align: center;
           background: #fff;
+          border-radius: 20px;
+          padding: 24px 20px;
+          box-shadow: 0 12px 32px rgba(20, 18, 31, 0.03), 0 2px 6px rgba(20, 18, 31, 0.02);
+          border: 1px solid rgba(20, 18, 31, 0.05);
           position: relative;
-          overflow: hidden;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }
-        .stat-card-inner::before {
-          content: "";
-          position: absolute;
-          top: -20px;
-          right: -20px;
-          width: 70px;
-          height: 70px;
-          border-radius: 50%;
-          opacity: 0.5;
+        .stat-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 16px 40px rgba(20, 18, 31, 0.06), 0 4px 8px rgba(20, 18, 31, 0.03);
         }
-        .stat-pink {
-          background: linear-gradient(135deg, #ff4fa3, #ffb8dd);
+        
+        /* Colorful Top Borders instead of full box borders */
+        .stat-pink { border-top: 4px solid #ff4fa3; }
+        .stat-teal { border-top: 4px solid #00d4b8; }
+        .stat-yellow { border-top: 4px solid #ffd23f; }
+
+        .stat-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
         }
-        .stat-pink .stat-card-inner::before {
-          background: #ffe0ef;
+        .stat-icon-wrap {
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
         }
-        .stat-teal {
-          background: linear-gradient(135deg, #00d4b8, #7ff0e0);
-        }
-        .stat-teal .stat-card-inner::before {
-          background: #d9f9f4;
-        }
-        .stat-yellow {
-          background: linear-gradient(135deg, #ffd23f, #ffe896);
-        }
-        .stat-yellow .stat-card-inner::before {
-          background: #fff3d0;
-        }
-        .stat-icon {
-          font-size: 22px;
-          margin-bottom: 6px;
-          position: relative;
+        .bg-pink-light { background: #ffe0ef; color: #ff4fa3; }
+        .bg-teal-light { background: #d9f9f4; color: #00d4b8; }
+        .bg-yellow-light { background: #fff3d0; color: #f59e0b; }
+
+        .stat-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: #6b6578;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
         .stat-number {
-          font-size: 32px;
+          font-size: 36px;
           font-weight: 800;
           color: #14121f;
           line-height: 1;
-          letter-spacing: -0.02em;
-          position: relative;
-        }
-        .stat-label {
-          font-size: 10.5px;
-          font-weight: 800;
-          color: #4a4658;
-          margin-top: 8px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          position: relative;
+          letter-spacing: -0.03em;
         }
 
+        /* QUOTA PROGRESS BAR */
+        .quota-container {
+          margin-top: 18px;
+          padding-top: 14px;
+          border-top: 1px dashed rgba(20,18,31,0.08);
+        }
+        .quota-bar-bg {
+          width: 100%;
+          height: 6px;
+          background: #f0eee8;
+          border-radius: 999px;
+          overflow: hidden;
+          margin-bottom: 8px;
+        }
+        .quota-bar-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #ff4fa3, #7c3aed);
+          border-radius: 999px;
+          transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .quota-text {
+          display: flex;
+          justify-content: space-between;
+          font-size: 10.5px;
+          color: #8a8496;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+        }
+
+        /* Rest of UI Styles */
         .overview-note {
           display: flex;
           gap: 14px;
-          background: linear-gradient(135deg, #f5f0ff, #fff8ed);
-          border: 2.5px solid #14121f;
+          background: #fff;
+          border: 1px solid rgba(124, 58, 237, 0.2);
           border-radius: 16px;
           padding: 18px 20px;
           margin-bottom: 20px;
-          box-shadow: 4px 4px 0 #7c3aed;
+          box-shadow: 0 8px 24px rgba(124, 58, 237, 0.05);
         }
         .overview-note-icon {
           color: #7c3aed;
@@ -578,35 +620,36 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
         .account-breakdown {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
         .account-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
           background: #fff;
-          border: 2.5px solid #14121f;
-          border-radius: 14px;
-          padding: 16px 18px;
+          border: 1px solid rgba(20, 18, 31, 0.06);
+          border-radius: 16px;
+          padding: 18px 20px;
           cursor: pointer;
           text-align: left;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
-          box-shadow: 3px 3px 0 rgba(20, 18, 31, 0.12);
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(20, 18, 31, 0.02);
         }
         .account-row:hover {
-          transform: translate(-2px, -2px);
-          box-shadow: 5px 5px 0 #00d4b8;
+          transform: translateX(4px);
+          border-color: #00d4b8;
+          box-shadow: 0 8px 24px rgba(0, 212, 184, 0.1);
         }
         .account-row-name {
           font-weight: 800;
-          font-size: 14px;
+          font-size: 15px;
           color: #14121f;
         }
         .account-row-stats {
           display: flex;
           align-items: center;
           gap: 8px;
-          font-size: 12.5px;
+          font-size: 13px;
           color: #6b6578;
           font-weight: 600;
         }
@@ -623,51 +666,56 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           margin-bottom: 34px;
         }
         .section-title {
-          font-size: 17px;
+          font-size: 18px;
           font-weight: 800;
           color: #14121f;
-          margin: 0 0 14px;
+          margin: 0 0 16px;
           letter-spacing: -0.01em;
         }
         .empty-note {
           background: #fff;
-          border: 2px dashed rgba(20, 18, 31, 0.3);
+          border: 1px dashed rgba(20, 18, 31, 0.2);
           border-radius: 16px;
-          padding: 28px;
+          padding: 32px;
           text-align: center;
           color: #8a8496;
-          font-size: 13px;
+          font-size: 14px;
         }
 
         .automation-perf-list {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
         }
         .perf-card {
           background: #fff;
-          border: 2.5px solid #14121f;
-          border-radius: 16px;
-          padding: 16px 18px;
-          box-shadow: 3px 3px 0 rgba(124, 58, 237, 0.35);
+          border: 1px solid rgba(20, 18, 31, 0.06);
+          border-radius: 18px;
+          padding: 20px;
+          box-shadow: 0 8px 24px rgba(20, 18, 31, 0.03);
+          transition: transform 0.2s ease;
+        }
+        .perf-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 32px rgba(20, 18, 31, 0.06);
         }
         .perf-top {
           display: flex;
           align-items: flex-start;
-          gap: 12px;
-          margin-bottom: 14px;
+          gap: 14px;
+          margin-bottom: 16px;
         }
         .perf-thumb {
-          width: 46px;
-          height: 46px;
-          border-radius: 10px;
-          border: 2px solid #14121f;
+          width: 52px;
+          height: 52px;
+          border-radius: 12px;
+          border: 1px solid rgba(20, 18, 31, 0.08);
           overflow: hidden;
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f0eee8;
+          background: #f8f7f5;
         }
         .perf-thumb img {
           width: 100%;
@@ -675,7 +723,7 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           object-fit: cover;
         }
         .perf-thumb-fallback {
-          font-size: 16px;
+          font-size: 18px;
         }
         .perf-top-text {
           flex: 1;
@@ -683,95 +731,95 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
         }
         .perf-chips {
           display: flex;
-          gap: 6px;
+          gap: 8px;
           flex-wrap: wrap;
-          margin-bottom: 6px;
+          margin-bottom: 8px;
         }
         .perf-trigger-chip {
-          font-size: 10px;
+          font-size: 10.5px;
           font-weight: 800;
           color: #7c3aed;
           background: #f5f0ff;
-          border: 1.5px solid #7c3aed;
-          padding: 2px 9px;
-          border-radius: 999px;
+          padding: 4px 10px;
+          border-radius: 6px;
         }
         .perf-scope-chip {
           font-size: 10px;
           font-weight: 700;
           color: #8a8496;
-          background: #f0eee8;
-          border: 1.5px solid #d8d4c8;
-          padding: 2px 9px;
-          border-radius: 999px;
+          background: #f8f7f5;
+          padding: 4px 10px;
+          border-radius: 6px;
           text-transform: uppercase;
         }
         .perf-keyword {
           font-weight: 800;
-          font-size: 14.5px;
+          font-size: 15px;
           color: #14121f;
         }
         .perf-status {
-          font-size: 10px;
+          font-size: 10.5px;
           font-weight: 800;
-          padding: 4px 10px;
+          padding: 4px 12px;
           border-radius: 999px;
           text-transform: uppercase;
           flex-shrink: 0;
         }
         .perf-status.active {
-          background: #00d4b8;
-          color: #14121f;
+          background: #d9f9f4;
+          color: #009985;
         }
         .perf-status.paused {
-          background: #eee;
+          background: #f0eee8;
           color: #8a8496;
         }
         .perf-numbers {
           display: flex;
-          gap: 24px;
-          padding-top: 12px;
-          border-top: 1.5px dashed rgba(20, 18, 31, 0.12);
+          gap: 32px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(20, 18, 31, 0.06);
         }
         .perf-number-item {
           display: flex;
           flex-direction: column;
         }
         .perf-number {
-          font-size: 21px;
+          font-size: 22px;
           font-weight: 800;
           color: #14121f;
         }
         .perf-number-label {
-          font-size: 10px;
+          font-size: 11px;
           color: #8a8496;
           text-transform: uppercase;
           font-weight: 700;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.03em;
+          margin-top: 2px;
         }
 
         .activity-feed {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 10px;
         }
         .activity-item {
           display: flex;
-          gap: 12px;
+          gap: 14px;
           align-items: flex-start;
           background: #fff;
-          border: 2px solid #14121f;
-          border-radius: 14px;
-          padding: 13px 16px;
+          border: 1px solid rgba(20, 18, 31, 0.06);
+          border-radius: 16px;
+          padding: 16px;
+          box-shadow: 0 4px 12px rgba(20, 18, 31, 0.02);
         }
         .activity-avatar {
-          width: 34px;
-          height: 34px;
+          width: 36px;
+          height: 36px;
           border-radius: 999px;
           background: linear-gradient(135deg, #ff4fa3, #7c3aed);
           color: #fff;
           font-weight: 800;
-          font-size: 13px;
+          font-size: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -782,14 +830,14 @@ export default function AnalyticsClient({ accounts, selectedAccountId, automatio
           min-width: 0;
         }
         .activity-line {
-          font-size: 13px;
+          font-size: 13.5px;
           color: #14121f;
-          line-height: 1.4;
+          line-height: 1.5;
         }
         .activity-meta {
-          font-size: 11px;
+          font-size: 11.5px;
           color: #8a8496;
-          margin-top: 3px;
+          margin-top: 4px;
         }
       `}</style>
     </div>
