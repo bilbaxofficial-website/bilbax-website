@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({ children }) {
+  const pathname = usePathname(); // इससे पता चलेगा हम किस पेज पर हैं
+
   return (
     <div className="app-shell">
       {/* Left Sidebar */}
@@ -8,22 +13,45 @@ export default function DashboardLayout({ children }) {
         <div className="sidebar-logo">AUTOINSTA</div>
         
         <nav className="sidebar-nav">
-          <Link href="/dashboard" className="sidebar-link active">
+          <Link 
+            href="/dashboard" 
+            className={`sidebar-link ${pathname === "/dashboard" ? "active-pink" : ""}`}
+          >
             <span className="icon">🏠</span> Dashboard
           </Link>
-          <Link href="/dashboard/automations" className="sidebar-link">
+
+          <Link 
+            href="/dashboard/automations" 
+            className={`sidebar-link ${pathname === "/dashboard/automations" ? "active-yellow" : ""}`}
+          >
             <span className="icon">⚙️</span> Automations
           </Link>
-          <Link href="/dashboard/automations/new" className="sidebar-link highlight">
+
+          <Link 
+            href="/dashboard/automations/new" 
+            className={`sidebar-link ${pathname === "/dashboard/automations/new" ? "active-yellow" : ""}`}
+          >
             <span className="icon">➕</span> Create Automation
           </Link>
-          <Link href="/dashboard/accounts" className="sidebar-link">
+
+          <Link 
+            href="/dashboard/accounts" 
+            className={`sidebar-link ${pathname === "/dashboard/accounts" ? "active-yellow" : ""}`}
+          >
             <span className="icon">📸</span> Instagram Accounts
           </Link>
-          <Link href="/dashboard/analytics" className="sidebar-link">
+
+          <Link 
+            href="/dashboard/analytics" 
+            className={`sidebar-link ${pathname === "/dashboard/analytics" ? "active-yellow" : ""}`}
+          >
             <span className="icon">📊</span> Analytics
           </Link>
-          <Link href="/dashboard/settings" className="sidebar-link">
+
+          <Link 
+            href="/dashboard/settings" 
+            className={`sidebar-link ${pathname === "/dashboard/settings" ? "active-yellow" : ""}`}
+          >
             <span className="icon">🛠️</span> Settings
           </Link>
         </nav>
@@ -89,26 +117,26 @@ export default function DashboardLayout({ children }) {
           transition: all 0.1s ease;
         }
 
+        /* Hover करने पर हल्का पीला होगा */
         .sidebar-link:hover {
-          background-color: #f5eedb;
+          background-color: #fceea7;
           border-color: #14121f;
         }
 
-        .sidebar-link.active {
+        /* Dashboard पेज पर होने पर पिंक कलर */
+        .sidebar-link.active-pink {
           background-color: #ff4fa3;
           border: 2px solid #14121f;
           box-shadow: 3px 3px 0 #14121f;
           color: #fff8ed;
         }
 
-        .sidebar-link.highlight {
+        /* बाकी किसी भी पेज पर होने पर डार्क येलो कलर */
+        .sidebar-link.active-yellow {
           background-color: #ffd23f;
           border: 2px solid #14121f;
           box-shadow: 3px 3px 0 #14121f;
-        }
-
-        .sidebar-link.highlight:hover {
-          background-color: #ffc914;
+          color: #14121f;
         }
 
         .main-content {
