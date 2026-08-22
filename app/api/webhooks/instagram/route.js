@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 // Supabase client initialize using service role key (bypasses RLS issues)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -8,6 +9,36 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Verifies that a webhook request genuinely came from Meta. Meta signs
+// every POST body with our App Secret (HMAC SHA-256) and sends the result
+// in the X-Hub-Signature-256 header. If we don't have the raw body's
+// signature matching what we compute ourselves, someone else sent this
+// request - not Meta - so we must reject it before touching the DB or
+// sending any DMs.
+function isValidMetaSignature(rawBody, signatureHeader) {
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret) {
+    // No secret configured - fail closed rather than silently accepting
+    // unverified requests in production.
+    console.error("❌ META_APP_SECRET is not set - rejecting webhook for safety.");
+    return false;
+  }
+  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
+    return false;
+  }
+
+  const expected = crypto.createHmac("sha256", appSecret).update(rawBody, "utf8").digest("hex");
+  const provided = signatureHeader.slice("sha256=".length);
+
+  // timingSafeEqual requires equal-length buffers, and throws otherwise -
+  // guard that first so a length mismatch doesn't crash the request.
+  const expectedBuf = Buffer.from(expected, "hex");
+  const providedBuf = Buffer.from(provided, "hex");
+  if (expectedBuf.length !== providedBuf.length) return false;
+
+  return crypto.timingSafeEqual(expectedBuf, providedBuf);
+}
 
 // GET Method: Meta Webhook Verification
 export async function GET(request) {
@@ -210,7 +241,17 @@ async function startAutomationFlow({
 // POST Method: Webhook Receiver
 export async function POST(request) {
   try {
-    const body = await request.json();
+    // Read the raw text first - signature verification needs the exact
+    // bytes Meta signed, before any JSON parsing.
+    const rawBody = await request.text();
+    const signatureHeader = request.headers.get("x-hub-signature-256");
+
+    if (!isValidMetaSignature(rawBody, signatureHeader)) {
+      console.error("🛑 REJECTED: Invalid or missing webhook signature.");
+      return NextResponse.json({ status: "invalid signature" }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody);
     console.log("-----------------------------------------");
     console.log("📥 NEW WEBHOOK RECEIVED:", JSON.stringify(body).slice(0, 300));
     const entries = body.entry || [];
