@@ -36,6 +36,13 @@ function dayKey(d) {
 function toInputDate(d) {
   return d.toISOString().slice(0, 10);
 }
+function formatFullDate(d) {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+function formatRangeLabel(start, end) {
+  if (toInputDate(start) === toInputDate(end)) return formatFullDate(start);
+  return `${formatFullDate(start)} – ${formatFullDate(end)}`;
+}
 
 // Builds either hourly buckets (single-day ranges) or daily buckets
 // (multi-day ranges) so the chart always has a continuous x-axis.
@@ -349,6 +356,10 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           </div>
         )}
 
+        <div className="selected-range-label">
+          Showing data for <b>{formatRangeLabel(rangeStart, rangeEnd)}</b>
+        </div>
+
         <div className="stats-grid">
           <div className="stat-card stat-pink">
             <div className="stat-top">
@@ -590,6 +601,16 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           background: #fff8ed;
         }
 
+        .selected-range-label {
+          font-size: 12px;
+          font-weight: 700;
+          color: #8a8496;
+          margin-bottom: 18px;
+        }
+        .selected-range-label b {
+          color: #14121f;
+          font-weight: 800;
+        }
         .stats-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -805,13 +826,15 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           justify-content: space-between;
           gap: 10px;
           margin-bottom: 12px;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
         }
         .perf-row-title {
           display: flex;
           align-items: center;
           gap: 10px;
           min-width: 0;
+          flex: 1;
+          overflow: hidden;
         }
         .perf-trigger-chip {
           font-size: 10px;
@@ -831,6 +854,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          min-width: 0;
         }
         .perf-status {
           font-size: 10px;
@@ -839,6 +863,8 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           border-radius: 999px;
           text-transform: uppercase;
           border: 2px solid #14121f;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .perf-status.active {
           background: #00d4b8;
