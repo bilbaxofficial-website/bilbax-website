@@ -13,47 +13,39 @@ export default async function AnalyticsPage({ searchParams }) {
   }
 
   const params = await searchParams;
-  const requestedAccountId = params?.account;
+  const requestedAccountId = params?.account; // may be a real account id, or "overview"
 
-  let accountId = requestedAccountId;
-  if (!accountId) {
-    const { data: firstAccount } = await supabase
-      .from("instagram_accounts")
-      .select("id")
-      .eq("user_id", user.id)
-      .order("connected_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    accountId = firstAccount?.id;
-  }
-
-  if (!accountId) {
-    redirect("/dashboard");
-  }
-
-  const { data: account } = await supabase
+  // Every account this user has connected - needed for the switcher tabs
+  // and for building the "Overview" (all-accounts) totals.
+  const { data: allAccounts } = await supabase
     .from("instagram_accounts")
-    .select("id, ig_username")
-    .eq("id", accountId)
+    .select("id, ig_username, connected_at")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .order("connected_at", { ascending: true });
 
-  if (!account) {
+  const accounts = allAccounts || [];
+  if (accounts.length === 0) {
     redirect("/dashboard");
   }
 
-  // All automations for this account (for the per-automation breakdown
-  // and to know which automation_ids belong to this account).
-  const { data: automations } = await supabase
+  const isOverview = requestedAccountId === "overview" || (!requestedAccountId && accounts.length > 1 ? false : false);
+  const wantsOverview = requestedAccountId === "overview";
+
+  // Resolve which single account to show (used unless "overview" was requested).
+  let selectedAccountId = requestedAccountId && requestedAccountId !== "overview" ? requestedAccountId : accounts[0].id;
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
+
+  // Fetch automations + logs for ALL of this user's accounts in one go -
+  // cheap enough at this scale, and lets us build both per-account view
+  // and the combined Overview from the same data without two round trips.
+  const { data: allAutomations } = await supabase
     .from("automations")
-    .select("id, trigger_type, keywords, dm_message, status")
-    .eq("ig_account_id", account.id);
+    .select("id, ig_account_id, trigger_type, keywords, dm_message, status, post_id")
+    .eq("user_id", user.id);
 
-  const automationIds = (automations || []).map((a) => a.id);
+  const automations = allAutomations || [];
+  const automationIds = automations.map((a) => a.id);
 
-  // All message_logs for this account's automations. Fetching a generous
-  // window (last 500 rows) is enough for an early-stage product without
-  // needing pagination yet.
   let logs = [];
   if (automationIds.length > 0) {
     const { data: logRows } = await supabase
@@ -61,16 +53,23 @@ export default async function AnalyticsPage({ searchParams }) {
       .select("id, automation_id, commenter_username, commenter_ig_id, matched_keyword, dm_sent, collected_value, created_at")
       .in("automation_id", automationIds)
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(1000);
     logs = logRows || [];
   }
 
   return (
     <AnalyticsClient
-      igAccountId={account.id}
-      igUsername={account.ig_username}
-      automations={automations || []}
+      accounts={accounts}
+      selectedAccountId={wantsOverview ? "overview" : selectedAccount.id}
+      automations={automations}
       logs={logs}
+      accessTokenByAccount={Object.fromEntries(
+        (await supabase
+          .from("instagram_accounts")
+          .select("id, access_token")
+          .eq("user_id", user.id)
+        ).data?.map((a) => [a.id, a.access_token]) || []
+      )}
     />
   );
 }
