@@ -142,27 +142,6 @@ async function sendPublicCommentReply(accessToken, commentId, replyText) {
   }
 }
 
-
-async function logDmSent({ automationId, commenterIgId, commenterUsername, matchedKeyword, collectedValue = null }) {
-  const { error } = await supabase.from("message_logs").insert({
-    automation_id: automationId,
-    commenter_ig_id: commenterIgId,
-    commenter_username: commenterUsername,
-    matched_keyword: matchedKeyword || "direct_dm",
-    dm_sent: true,
-    collected_value: collectedValue,
-    sent_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    console.error("⚠️ Analytics log failed:", error);
-    return false;
-  }
-
-  console.log("📊 ANALYTICS: DM logged successfully");
-  return true;
-}
-
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
   const text = (automation.dm_message || "Here is your link!").replace(/\{first_name\}/g, firstName);
 
@@ -255,6 +234,67 @@ function nextPendingStatus(automation, justCleared) {
   return null;
 }
 
+// ANALYTICS: create one row for every automation trigger.
+// The same row is updated later when a gated flow reaches its final DM.
+async function logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword, dmSent }) {
+  const { data, error } = await supabase
+    .from("message_logs")
+    .insert({
+      automation_id: automation.id,
+      commenter_ig_id: triggerUserId,
+      commenter_username: triggerUsername,
+      matched_keyword: matchedKeyword || null,
+      dm_sent: !!dmSent,
+      sent_at: new Date().toISOString(),
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (error) console.error("❌ ANALYTICS TRIGGER LOG ERROR:", error.message);
+  else console.log("📊 ANALYTICS: trigger logged, id =", data?.id);
+  return data?.id || null;
+}
+
+async function markFlowCompleted({ automationId, senderId, dmSent, collectedValue }) {
+  const { data: row, error: findErr } = await supabase
+    .from("message_logs")
+    .select("id")
+    .eq("automation_id", automationId)
+    .eq("commenter_ig_id", senderId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (findErr) console.error("❌ ANALYTICS LOOKUP ERROR:", findErr.message);
+
+  if (!row) {
+    console.log("⚠️ ANALYTICS: trigger row missing; creating fallback row");
+    const { error } = await supabase.from("message_logs").insert({
+      automation_id: automationId,
+      commenter_ig_id: senderId,
+      dm_sent: !!dmSent,
+      collected_value: collectedValue ?? null,
+      sent_at: new Date().toISOString(),
+    });
+    if (error) console.error("❌ ANALYTICS FALLBACK INSERT ERROR:", error.message);
+    return;
+  }
+
+  const update = {
+    dm_sent: !!dmSent,
+    sent_at: new Date().toISOString(),
+  };
+  if (collectedValue !== undefined) update.collected_value = collectedValue;
+
+  const { error: updateErr } = await supabase
+    .from("message_logs")
+    .update(update)
+    .eq("id", row.id);
+
+  if (updateErr) console.error("❌ ANALYTICS UPDATE ERROR:", updateErr.message);
+  else console.log("📊 ANALYTICS: flow completed for row", row.id, update);
+}
+
 // Shared entry point once we know: which automation matched, who triggered
 // it, and how to reply to them right now (comment_id for a fresh comment,
 // or {id: senderId} for a fresh story reply). Handles starting the
@@ -281,6 +321,7 @@ async function startAutomationFlow({
   if (firstStatus === "awaiting_first_click") {
     console.log("🔄 FLOW: Require Follow ENABLED, Sending First Gate...");
     const sent = await sendFirstFollowGate(igAccountId, accessToken, recipient, automation.follow_prompt);
+    await logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword, dmSent: sent });
     if (sent) {
       await supabase.from("conversation_state").insert({
         automation_id: automation.id,
@@ -297,6 +338,7 @@ async function startAutomationFlow({
   if (firstStatus === "awaiting_data") {
     console.log("🔄 FLOW: Collect field ENABLED (no follow gate), asking for", automation.collect_field);
     const sent = await sendCollectPrompt(igAccountId, accessToken, recipient, automation.collect_prompt, automation.collect_field);
+    await logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword, dmSent: sent });
     if (sent) {
       await supabase.from("conversation_state").insert({
         automation_id: automation.id,
@@ -312,15 +354,7 @@ async function startAutomationFlow({
 
   console.log("🔄 FLOW: Direct send link (no gates)...");
   const sent = await sendFinalMessage(igAccountId, accessToken, automation, recipient, triggerUsername || "there");
-
-  if (sent) {
-    await logDmSent({
-      automationId: automation.id,
-      commenterIgId: triggerUserId,
-      commenterUsername: triggerUsername,
-      matchedKeyword,
-    });
-  }
+  await logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword: matchedKeyword || "direct_dm", dmSent: sent });
 }
 
 // POST Method: Webhook Receiver
@@ -571,14 +605,7 @@ export async function POST(request) {
              console.log("✅ No more gates, sending Final Link...");
              await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
              const sent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
-             if (sent) {
-               await logDmSent({
-                 automationId: automation.id,
-                 commenterIgId: senderId,
-                 commenterUsername: pending.commenter_username,
-                 matchedKeyword: "follow_completed",
-               });
-             }
+             await markFlowCompleted({ automationId: automation.id, senderId, dmSent: sent });
            }
            continue;
         }
@@ -591,23 +618,13 @@ export async function POST(request) {
             .update({ status: "completed", collected_value: rawText, updated_at: new Date().toISOString() })
             .eq("id", pending.id);
 
-          const sent = await sendFinalMessage(
-            igAccountId,
-            account.access_token,
-            automation,
-            recipient,
-            pending.commenter_username || "there"
-          );
-
-          if (sent) {
-            await logDmSent({
-              automationId: automation.id,
-              commenterIgId: senderId,
-              commenterUsername: pending.commenter_username,
-              matchedKeyword: "data_collected",
-              collectedValue: rawText,
-            });
-          }
+          const sentFinal = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
+          await markFlowCompleted({
+            automationId: automation.id,
+            senderId,
+            dmSent: sentFinal,
+            collectedValue: rawText,
+          });
         }
       }
     }
