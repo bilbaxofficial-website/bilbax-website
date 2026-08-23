@@ -267,7 +267,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
 
   const filteredLogs = useMemo(() => {
     return logs.filter((l) => {
-      const t = new Date(l.created_at).getTime();
+      const t = new Date(l.sent_at).getTime();
       return t >= rangeStart.getTime() && t <= rangeEnd.getTime();
     });
   }, [logs, rangeStart, rangeEnd]);
@@ -275,7 +275,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
   const prevWindowLogs = useMemo(() => {
     if (!hasPrev) return [];
     return logs.filter((l) => {
-      const t = new Date(l.created_at).getTime();
+      const t = new Date(l.sent_at).getTime();
       return t >= prevStart.getTime() && t <= prevEnd.getTime();
     });
   }, [logs, prevStart, prevEnd, hasPrev]);
