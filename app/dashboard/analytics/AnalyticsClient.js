@@ -58,7 +58,7 @@ function buildSeries(logs, rangeStart, rangeEnd, hourly) {
       map.set(key, entry);
     }
     logs.forEach((l) => {
-      const d = new Date(l.created_at);
+      const d = new Date(l.sent_at);
       const key = `h${d.getHours()}`;
       const entry = map.get(key);
       if (!entry) return;
@@ -77,7 +77,7 @@ function buildSeries(logs, rangeStart, rangeEnd, hourly) {
       map.set(key, entry);
     }
     logs.forEach((l) => {
-      const key = dayKey(new Date(l.created_at));
+      const key = dayKey(new Date(l.sent_at));
       const entry = map.get(key);
       if (!entry) return;
       entry.triggered += 1;
