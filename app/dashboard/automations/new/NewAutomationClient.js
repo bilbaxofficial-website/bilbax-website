@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../../lib/supabase-client";
 
-const STEP_LABELS = ["Trigger", "Gate", "Message", "Review"];
-
 export default function NewAutomationClient({ igAccountId, igUsername }) {
   const router = useRouter();
   const supabase = createClient();
@@ -156,23 +154,30 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         <h1 className="page-title">Turn a comment into a conversation.</h1>
         <p className="page-sub">for @{igUsername} · 4 quick steps</p>
 
-        <div className="stepper">
-          {STEP_LABELS.map((label, i) => {
-            const n = i + 1;
+        <div className="stepper" aria-label="Automation setup progress">
+          {[1, 2, 3, 4].map((n) => {
             const done = n < step;
             const active = n === step;
+
             return (
-              <div className="stepper-item" key={label}>
-                <div
+              <div className="stepper-item" key={n}>
+                <button
+                  type="button"
                   className={`step ${done ? "done" : ""} ${active ? "active" : ""}`}
                   onClick={() => {
                     if (n <= step) goTo(n);
                   }}
+                  aria-label={`Step ${n}${active ? ", current step" : done ? ", completed" : ""}`}
+                  aria-current={active ? "step" : undefined}
                 >
-                  <div className="step-num">{done ? "✓" : n}</div>
-                  <div className="step-label">{label}</div>
-                </div>
-                {n < 4 && <div className={`step-connector ${done ? "done" : ""}`} />}
+                  <span className="step-num">{n}</span>
+                </button>
+                {n < 4 && (
+                  <span
+                    className={`step-connector ${done ? "done" : ""}`}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
             );
           })}
@@ -736,65 +741,92 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         .stepper {
           display: flex;
           align-items: center;
-          margin-bottom: 22px;
+          justify-content: center;
+          width: 100%;
+          max-width: 360px;
+          margin: 0 auto 22px;
+          padding: 0 4px;
+          box-sizing: border-box;
         }
         .stepper-item {
           display: flex;
           align-items: center;
-          flex: 1;
+          flex: 1 1 auto;
+          min-width: 0;
         }
         .stepper-item:last-child {
-          flex: 0;
+          flex: 0 0 auto;
         }
         .step {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          cursor: pointer;
-        }
-        .step-num {
           width: 30px;
           height: 30px;
-          border: 3px solid #14121f;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          flex: 0 0 30px;
+        }
+        .step-num {
+          width: 26px;
+          height: 26px;
+          border: 2px solid #14121f;
           border-radius: 50%;
           display: grid;
           place-items: center;
-          font: 700 13px "DM Mono", monospace;
+          font: 700 12px "DM Mono", monospace;
           background: #fff8ed;
-          flex-shrink: 0;
+          color: #14121f;
+          box-sizing: border-box;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
         }
         .step.done .step-num {
           background: #00d4b8;
         }
         .step.active .step-num {
           background: #ffd23f;
-          box-shadow: 4px 4px 0 #14121f;
+          box-shadow: 3px 3px 0 #14121f;
         }
-        .step-label {
-          font: 600 12px inherit;
-          color: #b0aabb;
-          display: none;
+        .step:not(.active):not(.done) {
+          cursor: default;
         }
-        .step.active .step-label,
-        .step.done .step-label {
-          color: #14121f;
-        }
-        @media (min-width: 480px) {
-          .step-label {
-            display: block;
-          }
+        .step:focus-visible {
+          outline: 2px solid #7c3aed;
+          outline-offset: 3px;
+          border-radius: 50%;
         }
         .step-connector {
-          flex: 1;
-          height: 3px;
+          flex: 1 1 auto;
+          height: 2px;
           background: #14121f;
-          opacity: 0.15;
+          opacity: 0.16;
           margin: 0 8px;
-          min-width: 12px;
+          min-width: 20px;
         }
         .step-connector.done {
           opacity: 1;
           background: #00d4b8;
+        }
+        @media (max-width: 420px) {
+          .stepper {
+            max-width: 320px;
+            margin-bottom: 18px;
+          }
+          .step {
+            width: 28px;
+            height: 28px;
+            flex-basis: 28px;
+          }
+          .step-num {
+            width: 25px;
+            height: 25px;
+            font-size: 11px;
+          }
+          .step-connector {
+            margin: 0 6px;
+            min-width: 14px;
+          }
         }
         .form-error {
           background: #fff0f0;
