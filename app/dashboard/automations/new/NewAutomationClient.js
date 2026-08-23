@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../../lib/supabase-client";
 
+const STEP_LABELS = ["Trigger", "Gate", "Message", "Review"];
+
 export default function NewAutomationClient({ igAccountId, igUsername }) {
   const router = useRouter();
   const supabase = createClient();
@@ -154,31 +156,32 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         <h1 className="page-title">Turn a comment into a conversation.</h1>
         <p className="page-sub">for @{igUsername} · 4 quick steps</p>
 
-        <div className="stepper" aria-label="Automation setup progress">
+        <div className="automation-progress" aria-label="Automation setup progress">
           {[1, 2, 3, 4].map((n) => {
             const done = n < step;
             const active = n === step;
 
             return (
-              <div className="stepper-item" key={n}>
+              <>
                 <button
+                  key={`step-${n}`}
                   type="button"
-                  className={`step ${done ? "done" : ""} ${active ? "active" : ""}`}
+                  className={`automation-progress__dot ${done ? "is-done" : ""} ${active ? "is-active" : ""}`}
                   onClick={() => {
                     if (n <= step) goTo(n);
                   }}
                   aria-label={`Step ${n}${active ? ", current step" : done ? ", completed" : ""}`}
                   aria-current={active ? "step" : undefined}
                 >
-                  <span className="step-num">{n}</span>
+                  {n}
                 </button>
                 {n < 4 && (
                   <span
-                    className={`step-connector ${done ? "done" : ""}`}
+                    className={`automation-progress__line ${done ? "is-done" : ""}`}
                     aria-hidden="true"
                   />
                 )}
-              </div>
+              </>
             );
           })}
         </div>
@@ -738,94 +741,70 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           font-size: 13px;
           margin: 0 0 24px;
         }
-        .stepper {
+        .automation-progress {
           display: flex;
           align-items: center;
-          justify-content: center;
-          width: 100%;
-          max-width: 360px;
-          margin: 0 auto 22px;
-          padding: 0 4px;
+          width: min(100%, 360px);
+          margin: 4px auto 24px;
           box-sizing: border-box;
         }
-        .stepper-item {
-          display: flex;
-          align-items: center;
-          flex: 1 1 auto;
-          min-width: 0;
-        }
-        .stepper-item:last-child {
-          flex: 0 0 auto;
-        }
-        .step {
-          width: 30px;
-          height: 30px;
-          padding: 0;
-          border: 0;
-          background: transparent;
+        .automation-progress__dot {
+          width: 34px;
+          height: 34px;
+          flex: 0 0 34px;
           display: grid;
           place-items: center;
-          cursor: pointer;
-          flex: 0 0 30px;
-        }
-        .step-num {
-          width: 26px;
-          height: 26px;
+          padding: 0;
           border: 2px solid #14121f;
           border-radius: 50%;
-          display: grid;
-          place-items: center;
-          font: 700 12px "DM Mono", monospace;
           background: #fff8ed;
           color: #14121f;
+          font: 700 13px/1 "DM Mono", monospace;
           box-sizing: border-box;
-          transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+          cursor: default;
+          transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
         }
-        .step.done .step-num {
+        .automation-progress__dot.is-done {
           background: #00d4b8;
+          cursor: pointer;
         }
-        .step.active .step-num {
+        .automation-progress__dot.is-active {
           background: #ffd23f;
           box-shadow: 3px 3px 0 #14121f;
         }
-        .step:not(.active):not(.done) {
-          cursor: default;
+        .automation-progress__dot.is-done:hover {
+          transform: translateY(-1px);
         }
-        .step:focus-visible {
+        .automation-progress__dot:focus-visible {
           outline: 2px solid #7c3aed;
           outline-offset: 3px;
-          border-radius: 50%;
         }
-        .step-connector {
-          flex: 1 1 auto;
+        .automation-progress__line {
           height: 2px;
+          flex: 1 1 auto;
+          min-width: 18px;
+          margin: 0 10px;
           background: #14121f;
           opacity: 0.16;
-          margin: 0 8px;
-          min-width: 20px;
         }
-        .step-connector.done {
-          opacity: 1;
+        .automation-progress__line.is-done {
           background: #00d4b8;
+          opacity: 1;
         }
         @media (max-width: 420px) {
-          .stepper {
-            max-width: 320px;
-            margin-bottom: 18px;
+          .automation-progress {
+            width: min(100%, 320px);
+            margin-bottom: 22px;
           }
-          .step {
-            width: 28px;
-            height: 28px;
-            flex-basis: 28px;
+          .automation-progress__dot {
+            width: 32px;
+            height: 32px;
+            flex-basis: 32px;
+            font-size: 12px;
           }
-          .step-num {
-            width: 25px;
-            height: 25px;
-            font-size: 11px;
-          }
-          .step-connector {
-            margin: 0 6px;
+          .automation-progress__line {
             min-width: 14px;
+            margin: 0 7px;
           }
         }
         .form-error {
