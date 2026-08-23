@@ -142,6 +142,27 @@ async function sendPublicCommentReply(accessToken, commentId, replyText) {
   }
 }
 
+
+async function logDmSent({ automationId, commenterIgId, commenterUsername, matchedKeyword, collectedValue = null }) {
+  const { error } = await supabase.from("message_logs").insert({
+    automation_id: automationId,
+    commenter_ig_id: commenterIgId,
+    commenter_username: commenterUsername,
+    matched_keyword: matchedKeyword || "direct_dm",
+    dm_sent: true,
+    collected_value: collectedValue,
+    sent_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error("⚠️ Analytics log failed:", error);
+    return false;
+  }
+
+  console.log("📊 ANALYTICS: DM logged successfully");
+  return true;
+}
+
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
   const text = (automation.dm_message || "Here is your link!").replace(/\{first_name\}/g, firstName);
 
@@ -293,16 +314,12 @@ async function startAutomationFlow({
   const sent = await sendFinalMessage(igAccountId, accessToken, automation, recipient, triggerUsername || "there");
 
   if (sent) {
-    const { error: logError } = await supabase.from("message_logs").insert({
-      automation_id: automation.id,
-      commenter_ig_id: triggerUserId,
-      commenter_username: triggerUsername,
-      matched_keyword: matchedKeyword || "direct_dm",
-      dm_sent: true,
-      sent_at: new Date().toISOString(),
+    await logDmSent({
+      automationId: automation.id,
+      commenterIgId: triggerUserId,
+      commenterUsername: triggerUsername,
+      matchedKeyword,
     });
-
-    if (logError) console.error("⚠️ Analytics log failed for direct DM:", logError);
   }
 }
 
@@ -555,15 +572,12 @@ export async function POST(request) {
              await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
              const sent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
              if (sent) {
-               const { error: logError } = await supabase.from("message_logs").insert({
-                 automation_id: automation.id,
-                 commenter_ig_id: senderId,
-                 commenter_username: pending.commenter_username,
-                 matched_keyword: "follow_completed",
-                 dm_sent: true,
-                 sent_at: new Date().toISOString(),
+               await logDmSent({
+                 automationId: automation.id,
+                 commenterIgId: senderId,
+                 commenterUsername: pending.commenter_username,
+                 matchedKeyword: "follow_completed",
                });
-               if (logError) console.error("⚠️ Analytics log failed for follow-only DM:", logError);
              }
            }
            continue;
@@ -577,16 +591,23 @@ export async function POST(request) {
             .update({ status: "completed", collected_value: rawText, updated_at: new Date().toISOString() })
             .eq("id", pending.id);
 
-          await supabase.from("message_logs").insert({
-            automation_id: automation.id,
-            commenter_ig_id: senderId,
-            commenter_username: pending.commenter_username,
-            matched_keyword: "data_collected",
-            dm_sent: true,
-            collected_value: rawText,
-          });
+          const sent = await sendFinalMessage(
+            igAccountId,
+            account.access_token,
+            automation,
+            recipient,
+            pending.commenter_username || "there"
+          );
 
-          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
+          if (sent) {
+            await logDmSent({
+              automationId: automation.id,
+              commenterIgId: senderId,
+              commenterUsername: pending.commenter_username,
+              matchedKeyword: "data_collected",
+              collectedValue: rawText,
+            });
+          }
         }
       }
     }
