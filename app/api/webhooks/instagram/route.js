@@ -289,7 +289,30 @@ async function startAutomationFlow({
   }
 
   console.log("🔄 FLOW: Direct send link (no gates)...");
-  await sendFinalMessage(igAccountId, accessToken, automation, recipient, triggerUsername || "there");
+  const sent = await sendFinalMessage(
+    igAccountId,
+    accessToken,
+    automation,
+    recipient,
+    triggerUsername || "there"
+  );
+
+  // Analytics: direct/final DMs need a message_logs row too.
+  // Collect-data flows are logged later when the user submits their data,
+  // so we intentionally do not create a row for those flows here.
+  if (sent) {
+    const { error: logError } = await supabase.from("message_logs").insert({
+      automation_id: automation.id,
+      commenter_ig_id: triggerUserId,
+      commenter_username: triggerUsername,
+      matched_keyword: "direct_dm",
+      dm_sent: true,
+    });
+
+    if (logError) {
+      console.error("❌ ANALYTICS LOG ERROR (direct DM):", logError.message);
+    }
+  }
 }
 
 // POST Method: Webhook Receiver
@@ -534,7 +557,31 @@ export async function POST(request) {
            } else {
              console.log("✅ No more gates, sending Final Link...");
              await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
-             await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
+
+             const sent = await sendFinalMessage(
+               igAccountId,
+               account.access_token,
+               automation,
+               recipient,
+               pending.commenter_username || "there"
+             );
+
+             // Analytics: follow-only flows reach their final DM here.
+             // Follow + collect flows are logged later in the data-collection
+             // branch, so they are not double-counted.
+             if (sent) {
+               const { error: logError } = await supabase.from("message_logs").insert({
+                 automation_id: automation.id,
+                 commenter_ig_id: senderId,
+                 commenter_username: pending.commenter_username,
+                 matched_keyword: "follow_verified",
+                 dm_sent: true,
+               });
+
+               if (logError) {
+                 console.error("❌ ANALYTICS LOG ERROR (follow-only DM):", logError.message);
+               }
+             }
            }
            continue;
         }
