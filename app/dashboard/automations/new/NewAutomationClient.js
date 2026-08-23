@@ -64,8 +64,12 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
   const [dmMessage, setDmMessage] = useState("");
   const [commentReply, setCommentReply] = useState("Sent you a DM! 📩");
   const [useButton, setUseButton] = useState(false);
-  const [buttonTitle, setButtonTitle] = useState("Get the link");
-  const [buttonUrl, setButtonUrl] = useState("");
+  // Instagram button-template messages support up to 3 buttons per message.
+  // Bilbax allows up to 5 configured links and the webhook sends them in
+  // multiple button messages when more than 3 are configured.
+  const [buttonLinks, setButtonLinks] = useState([
+    { title: "Get the link", url: "" },
+  ]);
 
   function validateStep(n) {
     if (n === 1 && triggerType === "keyword" && !keywords.trim()) {
@@ -73,11 +77,23 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
     }
     if (n === 3) {
       if (!dmMessage.trim()) return "Write the final DM message.";
-      if (useButton && (!buttonTitle.trim() || !buttonUrl.trim())) {
-        return "Add both a button label and a link, or turn the button off.";
-      }
-      if (useButton && buttonUrl.trim() && !/^https?:\/\//i.test(buttonUrl.trim())) {
-        return "The link should start with http:// or https://";
+      if (useButton) {
+        const cleanedButtons = buttonLinks
+          .map((b) => ({ title: (b.title || "").trim(), url: (b.url || "").trim() }));
+
+        if (cleanedButtons.length === 0) {
+          return "Add at least one button, or turn the button off.";
+        }
+
+        const incomplete = cleanedButtons.some((b) => !b.title || !b.url);
+        if (incomplete) {
+          return "Complete the button text and link for every button, or remove the empty one.";
+        }
+
+        const invalidUrl = cleanedButtons.find((b) => !/^https?:\/\//i.test(b.url));
+        if (invalidUrl) {
+          return "Every link should start with http:// or https://";
+        }
       }
     }
     return "";
@@ -107,6 +123,14 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
         ? ["*"]
         : keywords.split(",").map((k) => k.trim()).filter(Boolean);
 
+    // Keep valid button links. Up to 5 can be configured. The webhook
+    // sends them in groups of 3 to respect Instagram's button-template limit.
+    const cleanedButtons = useButton
+      ? buttonLinks
+          .map((b) => ({ title: (b.title || "").trim(), url: (b.url || "").trim() }))
+          .filter((b) => b.title && b.url)
+      : [];
+
     // Only keep follow-ups that have both a valid wait time and a message.
     const cleanedFollowups = followups
       .filter((f) => f.after_minutes > 0 && f.message && f.message.trim())
@@ -127,8 +151,11 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
       follow_prompt: requireFollow ? followPrompt : null,
       collect_field: collectField === "none" ? null : collectField,
       collect_prompt: collectField === "none" ? null : collectPrompt,
-      button_title: useButton ? buttonTitle.trim() : null,
-      button_url: useButton ? buttonUrl.trim() : null,
+      // Keep the old single-button columns populated from the first button
+      // for backward compatibility with existing dashboard code.
+      button_title: useButton && cleanedButtons[0] ? cleanedButtons[0].title : null,
+      button_url: useButton && cleanedButtons[0] ? cleanedButtons[0].url : null,
+      buttons: useButton ? cleanedButtons : null,
       followups: cleanedFollowups,
     });
 
@@ -525,27 +552,78 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                   </div>
                   {useButton && (
                     <div className="sub-field button-fields">
-                      <div className="field-group" style={{ marginBottom: 12 }}>
-                        <label className="field-label">Button text</label>
-                        <input
-                          type="text"
-                          className="field-input"
-                          placeholder="Get the link"
-                          maxLength={20}
-                          value={buttonTitle}
-                          onChange={(e) => setButtonTitle(e.target.value)}
-                        />
+                      <div className="button-fields-heading">
+                        <div>
+                          <strong>Buttons</strong>
+                          <span>Up to 5 links. Instagram sends 3 per message; extra links appear in a second button message.</span>
+                        </div>
+                        <span className="button-count">{buttonLinks.length}/5</span>
                       </div>
-                      <div className="field-group" style={{ marginBottom: 0 }}>
-                        <label className="field-label">Link (where the button goes)</label>
-                        <input
-                          type="text"
-                          className="field-input"
-                          placeholder="https://your-link.com"
-                          value={buttonUrl}
-                          onChange={(e) => setButtonUrl(e.target.value)}
-                        />
-                      </div>
+
+                      {buttonLinks.map((button, index) => (
+                        <div className="button-link-card" key={index}>
+                          <div className="button-link-card-header">
+                            <span>Button {index + 1}</span>
+                            {buttonLinks.length > 1 && (
+                              <button
+                                type="button"
+                                className="button-link-remove"
+                                onClick={() =>
+                                  setButtonLinks(buttonLinks.filter((_, i) => i !== index))
+                                }
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="field-group" style={{ marginBottom: 12 }}>
+                            <label className="field-label">Button text</label>
+                            <input
+                              type="text"
+                              className="field-input"
+                              placeholder="Get the link"
+                              maxLength={20}
+                              value={button.title}
+                              onChange={(e) => {
+                                const updated = [...buttonLinks];
+                                updated[index] = { ...updated[index], title: e.target.value };
+                                setButtonLinks(updated);
+                              }}
+                            />
+                          </div>
+
+                          <div className="field-group" style={{ marginBottom: 0 }}>
+                            <label className="field-label">Link (where the button goes)</label>
+                            <input
+                              type="text"
+                              className="field-input"
+                              placeholder="https://your-link.com"
+                              value={button.url}
+                              onChange={(e) => {
+                                const updated = [...buttonLinks];
+                                updated[index] = { ...updated[index], url: e.target.value };
+                                setButtonLinks(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      {buttonLinks.length < 5 && (
+                        <button
+                          type="button"
+                          className="add-button-link-btn"
+                          onClick={() =>
+                            setButtonLinks([
+                              ...buttonLinks,
+                              { title: "", url: "" },
+                            ])
+                          }
+                        >
+                          + Add more link
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -638,8 +716,14 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
                     <div className="review-num">✓</div>
                     <div className="review-text">
                       Final DM sent: <b>"{dmMessage.replace("{first_name}", previewName) || "(write your message in step 3)"}"</b>
-                      {useButton && buttonTitle && (
-                        <div className="chip-btn">🔗 {buttonTitle}</div>
+                      {useButton && buttonLinks.filter((b) => b.title.trim()).length > 0 && (
+                        <div className="review-button-list">
+                          {buttonLinks
+                            .filter((b) => b.title.trim())
+                            .map((b, i) => (
+                              <div className="chip-btn" key={i}>🔗 {b.title}</div>
+                            ))}
+                        </div>
                       )}
                     </div>
                   </li>
@@ -1004,6 +1088,78 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           border-radius: 10px;
           padding: 14px;
           margin-top: 10px;
+        }
+        .button-fields-heading {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .button-fields-heading strong {
+          display: block;
+          font-size: 13px;
+          margin-bottom: 3px;
+        }
+        .button-fields-heading span:not(.button-count) {
+          display: block;
+          font-size: 11px;
+          color: #8a8496;
+          line-height: 1.4;
+        }
+        .button-count {
+          flex: 0 0 auto;
+          font: 700 10px "DM Mono", monospace;
+          color: #7c3aed;
+          background: #f5f0ff;
+          border: 1px solid #7c3aed;
+          border-radius: 999px;
+          padding: 4px 7px;
+        }
+        .button-link-card {
+          border: 2px solid #14121f;
+          border-radius: 10px;
+          padding: 12px;
+          margin-bottom: 10px;
+          background: #fff;
+        }
+        .button-link-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 10px;
+          font: 700 11px "DM Mono", monospace;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #7c3aed;
+        }
+        .button-link-remove {
+          border: none;
+          background: none;
+          color: #ff4fa3;
+          font: 700 11px "Space Grotesk", sans-serif;
+          cursor: pointer;
+          padding: 0;
+        }
+        .add-button-link-btn {
+          width: 100%;
+          border: 2px dashed #14121f;
+          border-radius: 10px;
+          padding: 11px 12px;
+          background: #fff8ed;
+          color: #7c3aed;
+          font-weight: 700;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .add-button-link-btn:hover {
+          background: #f5f0ff;
+        }
+        .review-button-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 8px;
         }
         .followup-row {
           border: 2px solid #14121f;
