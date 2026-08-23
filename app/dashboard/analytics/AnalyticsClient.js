@@ -261,7 +261,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
     if (logs.length === 0) {
       return { rangeStart: startOfDay(now), rangeEnd: endOfDay(now), hourly: true, prevStart: null, prevEnd: null, hasPrev: false };
     }
-    const oldest = new Date(Math.min(...logs.map((l) => new Date(l.created_at).getTime())));
+    const oldest = new Date(Math.min(...logs.map((l) => new Date(l.sent_at).getTime())));
     return { rangeStart: startOfDay(oldest), rangeEnd: endOfDay(now), hourly: false, prevStart: null, prevEnd: null, hasPrev: false };
   }, [range, customStart, customEnd, logs]);
 
