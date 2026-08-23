@@ -155,6 +155,14 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
     // Instagram button templates support up to 3 buttons per message.
     // Bilbax can configure up to 5 buttons, so when there are more than 3
     // we send a second small button message for the remaining links.
+    //
+    // IMPORTANT: Analytics should count the final DM when at least one of
+    // the final-message sends actually succeeds. Instagram can sometimes
+    // deliver a message even when a later chunk reports an API error;
+    // returning false for the whole flow would incorrectly mark the DM as
+    // failed even though the customer received it.
+    let sentAny = false;
+
     for (let start = 0; start < buttonList.length; start += 3) {
       const chunk = buttonList.slice(start, start + 3);
       const payloadButtons = chunk.map((b) => ({
@@ -174,10 +182,10 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
         },
       });
 
-      if (!sent) return false;
+      if (sent) sentAny = true;
     }
 
-    return true;
+    return sentAny;
   }
 
   return callSendAPI(igAccountId, accessToken, recipient, { text });
