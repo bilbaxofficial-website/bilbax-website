@@ -482,7 +482,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
                           <>triggered {trigger ? trigger.label.toLowerCase() : "an automation"}</>
                         )}
                       </div>
-                      <div className="activity-meta">{timeAgo(log.created_at)}</div>
+                      <div className="activity-meta">{timeAgo(log.sent_at)}</div>
                     </div>
                     <div className={`activity-status ${log.dm_sent ? "ok" : "fail"}`}>{log.dm_sent ? "DM sent" : "DM failed"}</div>
                   </div>
