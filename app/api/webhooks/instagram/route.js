@@ -247,6 +247,7 @@ async function startAutomationFlow({
   triggerUsername,
   allowPublicReply = false,
   commentId = null,
+  matchedKeyword = null,
 }) {
   // Public replies are allowed ONLY for normal post/reel comments.
   // Story replies and Live comments intentionally do not use this path.
@@ -289,29 +290,19 @@ async function startAutomationFlow({
   }
 
   console.log("🔄 FLOW: Direct send link (no gates)...");
-  const sent = await sendFinalMessage(
-    igAccountId,
-    accessToken,
-    automation,
-    recipient,
-    triggerUsername || "there"
-  );
+  const sent = await sendFinalMessage(igAccountId, accessToken, automation, recipient, triggerUsername || "there");
 
-  // Analytics: direct/final DMs need a message_logs row too.
-  // Collect-data flows are logged later when the user submits their data,
-  // so we intentionally do not create a row for those flows here.
   if (sent) {
     const { error: logError } = await supabase.from("message_logs").insert({
       automation_id: automation.id,
       commenter_ig_id: triggerUserId,
       commenter_username: triggerUsername,
-      matched_keyword: "direct_dm",
+      matched_keyword: matchedKeyword || "direct_dm",
       dm_sent: true,
+      sent_at: new Date().toISOString(),
     });
 
-    if (logError) {
-      console.error("❌ ANALYTICS LOG ERROR (direct DM):", logError.message);
-    }
+    if (logError) console.error("⚠️ Analytics log failed for direct DM:", logError);
   }
 }
 
@@ -427,6 +418,11 @@ export async function POST(request) {
           // Only normal post/reel comments get a public reply.
           allowPublicReply: !isLive,
           commentId: !isLive ? commentId : null,
+          matchedKeyword: (() => {
+            const kwList = Array.isArray(matched.keywords) ? matched.keywords : [];
+            if (kwList.includes("*")) return "*";
+            return kwList.find((kw) => commentText.toLowerCase().includes(String(kw).toLowerCase().trim())) || null;
+          })(),
         });
       }
 
@@ -557,30 +553,17 @@ export async function POST(request) {
            } else {
              console.log("✅ No more gates, sending Final Link...");
              await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
-
-             const sent = await sendFinalMessage(
-               igAccountId,
-               account.access_token,
-               automation,
-               recipient,
-               pending.commenter_username || "there"
-             );
-
-             // Analytics: follow-only flows reach their final DM here.
-             // Follow + collect flows are logged later in the data-collection
-             // branch, so they are not double-counted.
+             const sent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
              if (sent) {
                const { error: logError } = await supabase.from("message_logs").insert({
                  automation_id: automation.id,
                  commenter_ig_id: senderId,
                  commenter_username: pending.commenter_username,
-                 matched_keyword: "follow_verified",
+                 matched_keyword: "follow_completed",
                  dm_sent: true,
+                 sent_at: new Date().toISOString(),
                });
-
-               if (logError) {
-                 console.error("❌ ANALYTICS LOG ERROR (follow-only DM):", logError.message);
-               }
+               if (logError) console.error("⚠️ Analytics log failed for follow-only DM:", logError);
              }
            }
            continue;
