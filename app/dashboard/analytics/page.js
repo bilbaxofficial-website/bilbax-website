@@ -58,9 +58,9 @@ export default async function AnalyticsPage({ searchParams }) {
   if (automationIds.length > 0) {
     const { data: logRows } = await supabase
       .from("message_logs")
-      .select("id, automation_id, commenter_username, commenter_ig_id, matched_keyword, dm_sent, collected_value, created_at")
+      .select("id, automation_id, commenter_username, commenter_ig_id, matched_keyword, dm_sent, collected_value, sent_at")
       .in("automation_id", automationIds)
-      .order("created_at", { ascending: false })
+      .order("sent_at", { ascending: false })
       .limit(500);
     logs = logRows || [];
   }
