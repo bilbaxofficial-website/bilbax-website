@@ -123,15 +123,32 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
         : []);
 
   if (buttonList.length > 0) {
-    const payloadButtons = buttonList.slice(0, 3).map((b) => ({
-      type: "web_url",
-      url: b.url,
-      title: String(b.title).slice(0, 20),
-    }));
+    // Instagram button templates support up to 3 buttons per message.
+    // Bilbax can configure up to 5 buttons, so when there are more than 3
+    // we send a second small button message for the remaining links.
+    for (let start = 0; start < buttonList.length; start += 3) {
+      const chunk = buttonList.slice(start, start + 3);
+      const payloadButtons = chunk.map((b) => ({
+        type: "web_url",
+        url: b.url,
+        title: String(b.title).slice(0, 20),
+      }));
 
-    return callSendAPI(igAccountId, accessToken, recipient, {
-      attachment: { type: "template", payload: { template_type: "button", text, buttons: payloadButtons } },
-    });
+      const sent = await callSendAPI(igAccountId, accessToken, recipient, {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "button",
+            text: start === 0 ? text : "More links:",
+            buttons: payloadButtons,
+          },
+        },
+      });
+
+      if (!sent) return false;
+    }
+
+    return true;
   }
 
   return callSendAPI(igAccountId, accessToken, recipient, { text });
