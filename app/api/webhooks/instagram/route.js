@@ -155,14 +155,6 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
     // Instagram button templates support up to 3 buttons per message.
     // Bilbax can configure up to 5 buttons, so when there are more than 3
     // we send a second small button message for the remaining links.
-    //
-    // IMPORTANT: Analytics should count the final DM when at least one of
-    // the final-message sends actually succeeds. Instagram can sometimes
-    // deliver a message even when a later chunk reports an API error;
-    // returning false for the whole flow would incorrectly mark the DM as
-    // failed even though the customer received it.
-    let sentAny = false;
-
     for (let start = 0; start < buttonList.length; start += 3) {
       const chunk = buttonList.slice(start, start + 3);
       const payloadButtons = chunk.map((b) => ({
@@ -182,10 +174,10 @@ async function sendFinalMessage(igAccountId, accessToken, automation, recipient,
         },
       });
 
-      if (sent) sentAny = true;
+      if (!sent) return false;
     }
 
-    return sentAny;
+    return true;
   }
 
   return callSendAPI(igAccountId, accessToken, recipient, { text });
@@ -242,67 +234,6 @@ function nextPendingStatus(automation, justCleared) {
   return null;
 }
 
-// ANALYTICS: create one row for every automation trigger.
-// The same row is updated later when a gated flow reaches its final DM.
-async function logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword, dmSent }) {
-  const { data, error } = await supabase
-    .from("message_logs")
-    .insert({
-      automation_id: automation.id,
-      commenter_ig_id: triggerUserId,
-      commenter_username: triggerUsername,
-      matched_keyword: matchedKeyword || null,
-      dm_sent: !!dmSent,
-      sent_at: new Date().toISOString(),
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (error) console.error("❌ ANALYTICS TRIGGER LOG ERROR:", error.message);
-  else console.log("📊 ANALYTICS: trigger logged, id =", data?.id);
-  return data?.id || null;
-}
-
-async function markFlowCompleted({ automationId, senderId, dmSent, collectedValue }) {
-  const { data: row, error: findErr } = await supabase
-    .from("message_logs")
-    .select("id")
-    .eq("automation_id", automationId)
-    .eq("commenter_ig_id", senderId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (findErr) console.error("❌ ANALYTICS LOOKUP ERROR:", findErr.message);
-
-  if (!row) {
-    console.log("⚠️ ANALYTICS: trigger row missing; creating fallback row");
-    const { error } = await supabase.from("message_logs").insert({
-      automation_id: automationId,
-      commenter_ig_id: senderId,
-      dm_sent: !!dmSent,
-      collected_value: collectedValue ?? null,
-      sent_at: new Date().toISOString(),
-    });
-    if (error) console.error("❌ ANALYTICS FALLBACK INSERT ERROR:", error.message);
-    return;
-  }
-
-  const update = {
-    dm_sent: !!dmSent,
-    sent_at: new Date().toISOString(),
-  };
-  if (collectedValue !== undefined) update.collected_value = collectedValue;
-
-  const { error: updateErr } = await supabase
-    .from("message_logs")
-    .update(update)
-    .eq("id", row.id);
-
-  if (updateErr) console.error("❌ ANALYTICS UPDATE ERROR:", updateErr.message);
-  else console.log("📊 ANALYTICS: flow completed for row", row.id, update);
-}
-
 // Shared entry point once we know: which automation matched, who triggered
 // it, and how to reply to them right now (comment_id for a fresh comment,
 // or {id: senderId} for a fresh story reply). Handles starting the
@@ -329,7 +260,6 @@ async function startAutomationFlow({
   if (firstStatus === "awaiting_first_click") {
     console.log("🔄 FLOW: Require Follow ENABLED, Sending First Gate...");
     const sent = await sendFirstFollowGate(igAccountId, accessToken, recipient, automation.follow_prompt);
-    await logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword, dmSent: sent });
     if (sent) {
       await supabase.from("conversation_state").insert({
         automation_id: automation.id,
@@ -346,7 +276,6 @@ async function startAutomationFlow({
   if (firstStatus === "awaiting_data") {
     console.log("🔄 FLOW: Collect field ENABLED (no follow gate), asking for", automation.collect_field);
     const sent = await sendCollectPrompt(igAccountId, accessToken, recipient, automation.collect_prompt, automation.collect_field);
-    await logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword, dmSent: sent });
     if (sent) {
       await supabase.from("conversation_state").insert({
         automation_id: automation.id,
@@ -362,7 +291,19 @@ async function startAutomationFlow({
 
   console.log("🔄 FLOW: Direct send link (no gates)...");
   const sent = await sendFinalMessage(igAccountId, accessToken, automation, recipient, triggerUsername || "there");
-  await logTrigger({ automation, triggerUserId, triggerUsername, matchedKeyword: matchedKeyword || "direct_dm", dmSent: sent });
+
+  if (sent) {
+    const { error: logError } = await supabase.from("message_logs").insert({
+      automation_id: automation.id,
+      commenter_ig_id: triggerUserId,
+      commenter_username: triggerUsername,
+      matched_keyword: matchedKeyword || "direct_dm",
+      dm_sent: true,
+      sent_at: new Date().toISOString(),
+    });
+
+    if (logError) console.error("⚠️ Analytics log failed for direct DM:", logError);
+  }
 }
 
 // POST Method: Webhook Receiver
@@ -421,6 +362,27 @@ export async function POST(request) {
         }
         
         console.log("✅ ACCOUNT FOUND IN DB:", account.ig_username);
+
+        // IMPORTANT: Instagram sends a webhook when our own account publishes
+        // a public reply to a user's comment. For an "all posts / any comment"
+        // automation, that reply must NOT be treated as a new user trigger,
+        // otherwise the automation replies to itself forever.
+        //
+        // Use the account ID as the primary check and username as a defensive
+        // fallback. This guard only ignores comments authored by THIS connected
+        // Instagram account; genuine user comments continue through unchanged.
+        const ownAccountId = String(account.ig_user_id || igAccountId || "").trim();
+        const ownUsername = String(account.ig_username || "").trim().toLowerCase();
+        const authorId = String(commenterId || "").trim();
+        const authorUsername = String(commenterUsername || "").trim().toLowerCase();
+
+        if (
+          (ownAccountId && authorId && authorId === ownAccountId) ||
+          (ownUsername && authorUsername && authorUsername === ownUsername)
+        ) {
+          console.log("🛑 STOP: Ignoring a comment authored by our own Instagram account to prevent automation loops.");
+          continue;
+        }
 
         const { data: automations, error: autoErr } = await supabase
           .from("automations")
@@ -613,7 +575,17 @@ export async function POST(request) {
              console.log("✅ No more gates, sending Final Link...");
              await supabase.from("conversation_state").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", pending.id);
              const sent = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
-             await markFlowCompleted({ automationId: automation.id, senderId, dmSent: sent });
+             if (sent) {
+               const { error: logError } = await supabase.from("message_logs").insert({
+                 automation_id: automation.id,
+                 commenter_ig_id: senderId,
+                 commenter_username: pending.commenter_username,
+                 matched_keyword: "follow_completed",
+                 dm_sent: true,
+                 sent_at: new Date().toISOString(),
+               });
+               if (logError) console.error("⚠️ Analytics log failed for follow-only DM:", logError);
+             }
            }
            continue;
         }
@@ -626,13 +598,16 @@ export async function POST(request) {
             .update({ status: "completed", collected_value: rawText, updated_at: new Date().toISOString() })
             .eq("id", pending.id);
 
-          const sentFinal = await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
-          await markFlowCompleted({
-            automationId: automation.id,
-            senderId,
-            dmSent: sentFinal,
-            collectedValue: rawText,
+          await supabase.from("message_logs").insert({
+            automation_id: automation.id,
+            commenter_ig_id: senderId,
+            commenter_username: pending.commenter_username,
+            matched_keyword: "data_collected",
+            dm_sent: true,
+            collected_value: rawText,
           });
+
+          await sendFinalMessage(igAccountId, account.access_token, automation, recipient, pending.commenter_username || "there");
         }
       }
     }
