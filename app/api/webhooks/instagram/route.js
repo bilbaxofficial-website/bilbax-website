@@ -113,6 +113,35 @@ async function sendCollectPrompt(igAccountId, accessToken, recipient, promptText
 }
 
 // STEP 3: Final Link Delivery
+// STEP 3: Public reply for normal post/reel comments only
+async function sendPublicCommentReply(accessToken, commentId, replyText) {
+  if (!commentId || !replyText || !replyText.trim()) return false;
+
+  try {
+    console.log("💬 SENDING PUBLIC COMMENT REPLY TO:", commentId);
+    const res = await fetch(`https://graph.instagram.com/v21.0/${commentId}/replies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: replyText.trim(),
+        access_token: accessToken,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.error) {
+      console.error("❌ INSTAGRAM PUBLIC REPLY ERROR:", data.error.message);
+      return false;
+    }
+
+    console.log("✅ PUBLIC COMMENT REPLY SENT!");
+    return true;
+  } catch (err) {
+    console.error("❌ PUBLIC REPLY FETCH ERROR:", err);
+    return false;
+  }
+}
+
 async function sendFinalMessage(igAccountId, accessToken, automation, recipient, firstName) {
   const text = (automation.dm_message || "Here is your link!").replace(/\{first_name\}/g, firstName);
 
@@ -216,7 +245,15 @@ async function startAutomationFlow({
   recipient,
   triggerUserId,
   triggerUsername,
+  allowPublicReply = false,
+  commentId = null,
 }) {
+  // Public replies are allowed ONLY for normal post/reel comments.
+  // Story replies and Live comments intentionally do not use this path.
+  if (allowPublicReply && commentId && automation.comment_reply) {
+    await sendPublicCommentReply(accessToken, commentId, automation.comment_reply);
+  }
+
   const firstStatus = nextPendingStatus(automation, "none");
 
   if (firstStatus === "awaiting_first_click") {
@@ -364,6 +401,9 @@ export async function POST(request) {
           recipient: { comment_id: commentId },
           triggerUserId: commenterId,
           triggerUsername: commenterUsername,
+          // Only normal post/reel comments get a public reply.
+          allowPublicReply: !isLive,
+          commentId: !isLive ? commentId : null,
         });
       }
 
