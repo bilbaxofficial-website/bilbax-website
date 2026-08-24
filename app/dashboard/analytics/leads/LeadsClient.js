@@ -16,13 +16,35 @@ function formatDate(dateStr) {
   });
 }
 
-export default function LeadsClient({ igAccountId, igUsername, leads }) {
+function formatRangeDate(value) {
+  if (!value) return null;
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function rangeLabel(selectedRange, rangeStart, rangeEnd) {
+  if (selectedRange === "today") return "Today";
+  if (selectedRange === "yesterday") return "Yesterday";
+  if (selectedRange === "custom") {
+    const start = formatRangeDate(rangeStart);
+    const end = formatRangeDate(rangeEnd);
+    if (!start) return "Custom range";
+    return start === end || !end ? start : `${start} – ${end}`;
+  }
+  return "All time";
+}
+
+export default function LeadsClient({ igAccountId, igUsername, leads, selectedRange = "all", rangeStart, rangeEnd }) {
+  const selectedLabel = rangeLabel(selectedRange, rangeStart, rangeEnd);
+  const backParams = new URLSearchParams({ account: igAccountId, range: selectedRange });
+  if (rangeStart) backParams.set("start", rangeStart);
+  if (rangeEnd) backParams.set("end", rangeEnd);
+  const backHref = `/dashboard/analytics?${backParams.toString()}`;
   return (
     <div className="leads-shell">
       <header className="page-header">
         <a href="/" className="page-logo">bilbax</a>
         <a
-          href={`/dashboard/analytics?account=${encodeURIComponent(igAccountId)}`}
+          href={backHref}
           className="back-link"
         >
           ← Back to analytics
@@ -34,6 +56,7 @@ export default function LeadsClient({ igAccountId, igUsername, leads }) {
           <div>
             <h1>Captured Leads</h1>
             <p className="page-subhead">for @{igUsername}</p>
+            <div className="range-context">Showing {selectedLabel.toLowerCase()}</div>
           </div>
         </div>
 
@@ -47,7 +70,7 @@ export default function LeadsClient({ igAccountId, igUsername, leads }) {
 
         {leads.length === 0 ? (
           <div className="empty-note">
-            No captured leads yet. When someone shares their email or phone through an automation, they will appear here.
+            No captured leads in this time range. Try another date range in Analytics to see more.
           </div>
         ) : (
           <section className="lead-list" aria-label="Captured leads list">
@@ -129,6 +152,19 @@ export default function LeadsClient({ igAccountId, igUsername, leads }) {
           font-size: 13px;
           color: #8a8496;
           margin: 4px 0 0;
+        }
+        .range-context {
+          display: inline-flex;
+          margin-top: 10px;
+          padding: 5px 10px;
+          border: 2px solid #14121f;
+          border-radius: 999px;
+          background: #fff;
+          color: #4a4658;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
         }
         .lead-count-card {
           display: flex;
