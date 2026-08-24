@@ -14,6 +14,9 @@ export default async function CapturedLeadsPage({ searchParams }) {
 
   const params = await searchParams;
   const requestedAccountId = params?.account;
+  const selectedRange = params?.range || "all";
+  const rangeStart = params?.start || null;
+  const rangeEnd = params?.end || null;
 
   let accountId = requestedAccountId;
   if (!accountId) {
@@ -66,10 +69,19 @@ export default async function CapturedLeadsPage({ searchParams }) {
       console.error("Captured leads query error:", error);
     }
 
-    leads = (logRows || []).map((lead) => ({
-      ...lead,
-      automation: automationMap.get(lead.automation_id) || null,
-    }));
+    const startMs = rangeStart ? new Date(rangeStart).getTime() : null;
+    const endMs = rangeEnd ? new Date(rangeEnd).getTime() : null;
+
+    leads = (logRows || [])
+      .filter((lead) => {
+        if (!startMs && !endMs) return true;
+        const sentMs = new Date(lead.sent_at).getTime();
+        return (!startMs || sentMs >= startMs) && (!endMs || sentMs <= endMs);
+      })
+      .map((lead) => ({
+        ...lead,
+        automation: automationMap.get(lead.automation_id) || null,
+      }));
   }
 
   return (
@@ -77,6 +89,9 @@ export default async function CapturedLeadsPage({ searchParams }) {
       igAccountId={account.id}
       igUsername={account.ig_username}
       leads={leads}
+      selectedRange={selectedRange}
+      rangeStart={rangeStart}
+      rangeEnd={rangeEnd}
     />
   );
 }
