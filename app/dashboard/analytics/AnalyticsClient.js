@@ -691,12 +691,10 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 38px;
-          height: 38px;
-          margin: -11px 3px 0 0;
-          padding: 0;
+          width: 30px;
+          height: 30px;
+          margin: -21px -23px 0 0;
           background: transparent;
-          border: 0;
           color: #14121f;
           opacity: 1;
           line-height: 1;
@@ -705,10 +703,10 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         }
         .stat-card-link:hover .stat-view-eye {
           opacity: 1;
-          transform: scale(1.04);
+          transform: scale(1.06);
         }
         .stat-view-eye {
-          font-size: 24px;
+          font-size: 27px;
           font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
           white-space: nowrap;
         }
