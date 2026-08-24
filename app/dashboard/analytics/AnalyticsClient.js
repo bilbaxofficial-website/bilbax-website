@@ -693,7 +693,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           justify-content: center;
           width: 30px;
           height: 30px;
-          margin: -21px -23px 0 0;
+          margin: 0;
           background: transparent;
           color: #14121f;
           opacity: 1;
@@ -706,7 +706,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           transform: scale(1.06);
         }
         .stat-view-eye {
-          font-size: 27px;
+          font-size: 25px;
           font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
           white-space: nowrap;
         }
