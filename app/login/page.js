@@ -18,8 +18,8 @@ export default function LoginPage() {
     <div className="login-shell">
       <div className="login-card">
         <a href="/" className="login-logo">bilbax</a>
-        <h1>Welcome back</h1>
-        <p>Sign in to manage your Instagram automations.</p>
+        <h1>Welcome</h1>
+        <p>Continue to manage your Instagram automations.</p>
         <button onClick={handleGoogleLogin} className="google-btn">
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
             <path fill="#4285F4" d="M19.6 10.23c0-.68-.06-1.36-.18-2H10v3.79h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.9-1.75 2.99-4.33 2.99-7.31z"/>
