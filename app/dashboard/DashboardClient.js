@@ -110,11 +110,10 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         {igAccounts.length === 0 ? (
           <div className="hero-card">
             <div className="hero-badge">Step 1 of 1</div>
-            <h1>Connect your Instagram Business account</h1>
+            <h1>Connect your Instagram Professional account</h1>
             <p>
-              Bilbax needs access to your Instagram Business or Creator
-              account to start automating comments and DMs. This takes
-              about 30 seconds.
+              Connect your Instagram Professional account to start Automation.
+              It only takes about 30 seconds.
             </p>
             <button onClick={handleConnectInstagram} className="connect-btn">
               Connect Instagram
@@ -415,7 +414,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           margin-bottom: 20px;
         }
         .hero-card h1 {
-          font-size: 26px;
+          font-size: 26.7px;
           font-weight: 800;
           color: #14121f;
           margin: 0 0 12px;
@@ -423,7 +422,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         }
         .hero-card p {
           color: #4a4658;
-          font-size: 15px;
+          font-size: 15.4px;
           line-height: 1.6;
           margin: 0 0 28px;
         }
@@ -457,7 +456,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         }
         .hero-footnote {
           margin-top: 20px;
-          font-size: 12px;
+          font-size: 12.3px;
           color: #8a8496;
         }
 
