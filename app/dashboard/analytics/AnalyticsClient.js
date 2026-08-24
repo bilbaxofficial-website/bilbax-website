@@ -44,6 +44,15 @@ function formatRangeLabel(start, end) {
   return `${formatFullDate(start)} – ${formatFullDate(end)}`;
 }
 
+function buildLeadsHref(accountId, range, rangeStart, rangeEnd) {
+  const params = new URLSearchParams({ account: accountId, range });
+  if (range !== "all") {
+    params.set("start", rangeStart.toISOString());
+    params.set("end", rangeEnd.toISOString());
+  }
+  return `/dashboard/analytics/leads?${params.toString()}`;
+}
+
 // Builds either hourly buckets (single-day ranges) or daily buckets
 // (multi-day ranges) so the chart always has a continuous x-axis.
 function buildSeries(logs, rangeStart, rangeEnd, hourly) {
@@ -315,6 +324,11 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
     return map;
   }, [automations]);
 
+  const leadsHref = useMemo(
+    () => buildLeadsHref(igAccountId, range, rangeStart, rangeEnd),
+    [igAccountId, range, rangeStart, rangeEnd]
+  );
+
   return (
     <div className="page-shell">
       <header className="page-header">
@@ -370,16 +384,16 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
             <div className="stat-label">DMs sent</div>
           </div>
           <a
-            href={`/dashboard/analytics/leads?account=${encodeURIComponent(igAccountId)}`}
+            href={leadsHref}
             className="stat-card stat-teal stat-card-link"
-            aria-label={`See ${totalLeads} captured leads`}
+            aria-label={`See ${totalLeads} captured leads for ${formatRangeLabel(rangeStart, rangeEnd)}`}
           >
             <div className="stat-top">
               <div className="stat-icon">📋</div>
               <span className="stat-view-eye" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="presentation" focusable="false">
-                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-                  <circle cx="12" cy="12" r="2.75" />
+                  <path d="M2.5 12s3.5-5.5 9.5-5.5 9.5 5.5 9.5 5.5-3.5 5.5-9.5 5.5S2.5 12 2.5 12Z" />
+                  <circle cx="12" cy="12" r="2.35" />
                 </svg>
               </span>
             </div>
@@ -682,19 +696,27 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
+          width: 28px;
+          height: 28px;
+          margin: -2px -1px 0 0;
           background: transparent;
           color: #14121f;
+          opacity: 0.82;
           line-height: 1;
+          pointer-events: none;
+          transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        .stat-card-link:hover .stat-view-eye {
+          opacity: 1;
+          transform: scale(1.06);
         }
         .stat-view-eye svg {
-          width: 27px;
-          height: 27px;
+          width: 22px;
+          height: 22px;
           display: block;
           fill: none;
           stroke: currentColor;
-          stroke-width: 1.9;
+          stroke-width: 2.15;
           stroke-linecap: round;
           stroke-linejoin: round;
         }
@@ -702,7 +724,6 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           fill: currentColor;
           stroke: none;
         }
-
         .stat-icon {
           width: 34px;
           height: 34px;
