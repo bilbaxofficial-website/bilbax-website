@@ -203,9 +203,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
                 <div className="welcome-modal" onClick={(e) => e.stopPropagation()}>
                   <h3>Welcome Message</h3>
                   <p className="welcome-modal-sub">
-                    Sent once to anyone who DMs @{selectedAccount.ig_username} for the
-                    first time — no comment or story needed. No follow gate, no data
-                    collection, just a simple hello.
+                    Send a welcome DM automatically when someone messages you for the first time.
                   </p>
 
                   <div className="welcome-switch-row">
