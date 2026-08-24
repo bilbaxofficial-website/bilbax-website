@@ -376,7 +376,12 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           >
             <div className="stat-top">
               <div className="stat-icon">📋</div>
-              <span className="stat-view-eye" aria-hidden="true">👁️</span>
+              <span className="stat-view-eye" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                  <circle cx="12" cy="12" r="2.75" />
+                </svg>
+              </span>
             </div>
             <div className="stat-number">{totalLeads}</div>
             <div className="stat-label">Leads captured</div>
@@ -679,11 +684,23 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           justify-content: center;
           width: 32px;
           height: 32px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.72);
-          border: 2px solid #14121f;
-          font-size: 15px;
+          background: transparent;
+          color: #14121f;
           line-height: 1;
+        }
+        .stat-view-eye svg {
+          width: 27px;
+          height: 27px;
+          display: block;
+          fill: none;
+          stroke: currentColor;
+          stroke-width: 1.9;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+        .stat-view-eye svg circle {
+          fill: currentColor;
+          stroke: none;
         }
 
         .stat-icon {
