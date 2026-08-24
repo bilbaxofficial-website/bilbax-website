@@ -369,14 +369,18 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
             <div className="stat-number">{totalDMs}</div>
             <div className="stat-label">DMs sent</div>
           </div>
-          <div className="stat-card stat-teal">
+          <a
+            href={`/dashboard/analytics/leads?account=${encodeURIComponent(igAccountId)}`}
+            className="stat-card stat-teal stat-card-link"
+            aria-label={`See ${totalLeads} captured leads`}
+          >
             <div className="stat-top">
               <div className="stat-icon">📋</div>
-              {hasPrev && <Trend current={totalLeads} previous={prevLeads} />}
+              <span className="stat-view-eye" aria-hidden="true">👁️</span>
             </div>
             <div className="stat-number">{totalLeads}</div>
             <div className="stat-label">Leads captured</div>
-          </div>
+          </a>
           <div className="stat-card stat-yellow">
             <div className="stat-top">
               <div className="stat-icon">📈</div>
@@ -649,6 +653,39 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           justify-content: space-between;
           margin-bottom: 14px;
         }
+
+        .stat-card-link {
+          display: block;
+          color: inherit;
+          text-decoration: none;
+          cursor: pointer;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .stat-card-link:hover {
+          transform: translate(-2px, -2px);
+          box-shadow: 7px 7px 0 #00d4b8;
+        }
+        .stat-card-link:active {
+          transform: translate(1px, 1px);
+          box-shadow: 3px 3px 0 #00d4b8;
+        }
+        .stat-card-link:focus-visible {
+          outline: 3px solid #7c3aed;
+          outline-offset: 4px;
+        }
+        .stat-view-eye {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.72);
+          border: 2px solid #14121f;
+          font-size: 15px;
+          line-height: 1;
+        }
+
         .stat-icon {
           width: 34px;
           height: 34px;
