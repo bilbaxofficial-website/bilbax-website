@@ -48,7 +48,7 @@ export default function LoginPage() {
           border: 3px solid #14121f;
           border-radius: 20px;
           box-shadow: 8px 8px 0 #ff4fa3;
-          padding: 40px 32px;
+          padding: 24px 32px 40px;
           max-width: 380px;
           width: 100%;
           text-align: center;
@@ -57,10 +57,10 @@ export default function LoginPage() {
           display: inline-flex;
           align-items: center;
           text-decoration: none;
-          margin-bottom: 24px;
+          margin-bottom: 8px;
         }
         .login-logo img {
-          height: 28px;
+          height: 34px;
           width: auto;
           display: block;
         }
