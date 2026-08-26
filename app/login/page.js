@@ -17,7 +17,6 @@ export default function LoginPage() {
   return (
     <div className="login-shell">
       <div className="login-card">
-        <a href="/" className="login-logo"><img src="/bilbax-logo.png" alt="bilbax" className="brand-logo-img" /></a>
         <h1>Welcome</h1>
         <p>Continue to manage your Instagram automations.</p>
         <button onClick={handleGoogleLogin} className="google-btn">
@@ -48,21 +47,10 @@ export default function LoginPage() {
           border: 3px solid #14121f;
           border-radius: 20px;
           box-shadow: 8px 8px 0 #ff4fa3;
-          padding: 24px 32px 40px;
+          padding: 40px 32px;
           max-width: 380px;
           width: 100%;
           text-align: center;
-        }
-        .login-logo {
-          display: inline-flex;
-          align-items: center;
-          text-decoration: none;
-          margin-bottom: 8px;
-        }
-        .login-logo img {
-          height: 34px;
-          width: auto;
-          display: block;
         }
         h1 {
           font-size: 28px;
