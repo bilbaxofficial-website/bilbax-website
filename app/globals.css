@@ -52,7 +52,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 
 .nav-wrap { position: relative; z-index: 20; padding: 20px 0; }
 .nav { display: flex; align-items: center; justify-content: space-between; }
-.logo { color: var(--ink); text-decoration: none; font: 800 28px var(--font-display); letter-spacing: -.08em; }
+.logo { color: var(--ink); text-decoration: none; font: 800 28px var(--font-display); letter-spacing: -.08em; display: inline-flex; align-items: center; }
+.logo img.brand-logo-img,
+.brand-logo-img { height: 28px !important; width: auto !important; display: block; max-width: none; }
 .logo::after { content: ''; display: inline-block; width: 9px; height: 9px; margin: 0 0 4px 3px; background: var(--pink); border: 2px solid var(--ink); border-radius: 50%; }
 .footer .logo { color: var(--cream); }
 .nav-links { display: flex; align-items: center; gap: 30px; }
