@@ -390,7 +390,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           >
             <div className="stat-top">
               <div className="stat-icon">📋</div>
-              <span className="stat-view-eye" aria-hidden="true">👁️‍🗨️</span>
+              <span className="stat-corner-dot" aria-hidden="true" />
             </div>
             <div className="stat-number">{totalLeads}</div>
             <div className="stat-label">Leads captured</div>
@@ -682,6 +682,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
 
         .stat-card-link {
           display: block;
+          position: relative;
           color: inherit;
           text-decoration: none;
           cursor: pointer;
@@ -699,28 +700,21 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           outline: 3px solid #7c3aed;
           outline-offset: 4px;
         }
-        .stat-view-eye {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 30px;
-          height: 30px;
-          margin: 0;
-          background: transparent;
-          color: #14121f;
-          opacity: 1;
-          line-height: 1;
+        .stat-corner-dot {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #ff4fa3;
+          border: 2px solid #14121f;
           pointer-events: none;
-          transition: opacity 0.15s ease, transform 0.15s ease;
+          animation: dot-pulse 2.2s ease-in-out infinite;
         }
-        .stat-card-link:hover .stat-view-eye {
-          opacity: 1;
-          transform: scale(1.06);
-        }
-        .stat-view-eye {
-          font-size: 22px;
-          font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-          white-space: nowrap;
+        @keyframes dot-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.25); }
         }
         .stat-icon {
           width: 32px;
