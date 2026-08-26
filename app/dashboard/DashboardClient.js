@@ -361,7 +361,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border: 3px solid #14121f;
           color: #14121f;
           padding: 8px 18px;
-          border-radius: 5px;
+          border-radius: 16px;
           font-weight: 700;
           cursor: pointer;
           font-size: 13px;
@@ -387,7 +387,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border: 3px solid #ff4fa3;
           color: #14121f;
           padding: 14px 18px;
-          border-radius: 0;
+          border-radius: 14px;
           font-size: 14px;
           margin-bottom: 24px;
           font-weight: 600;
@@ -397,7 +397,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-align: center;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 48px 36px;
           box-shadow: 7px 7px 0 #14121f;
         }
@@ -437,7 +437,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: #ff4fa3;
           color: #14121f;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 16px 32px;
           font-weight: 700;
           font-size: 16px;
@@ -472,7 +472,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         }
         .account-tab {
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 8px 16px;
           background: #fff;
           color: #14121f;
@@ -503,7 +503,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           justify-content: space-between;
           background: #14121f;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 22px 28px;
           box-shadow: 6px 6px 0 #00d4b8;
           gap: 12px;
@@ -546,7 +546,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border: 1.5px solid rgba(255, 248, 237, 0.35);
           color: #fff8ed;
           padding: 6px 12px;
-          border-radius: 5px;
+          border-radius: 16px;
           font-size: 11px;
           font-weight: 700;
           cursor: pointer;
@@ -577,7 +577,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-align: center;
           background: transparent;
           border: 2px dashed #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 14px;
           margin-top: 14px;
           color: #7c3aed;
@@ -602,7 +602,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           gap: 12px;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 16px 20px;
           margin-top: 14px;
           box-shadow: 5px 5px 0 #ffd23f;
@@ -632,7 +632,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: #fff8ed;
           color: #14121f;
           padding: 8px 16px;
-          border-radius: 5px;
+          border-radius: 16px;
           font-weight: 700;
           font-size: 12px;
           cursor: pointer;
@@ -659,7 +659,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         .welcome-modal {
           background: #fff8ed;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 26px;
           max-width: 420px;
           width: 100%;
@@ -684,7 +684,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           align-items: center;
           justify-content: space-between;
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 10px 14px;
           margin-bottom: 16px;
           background: #fff;
@@ -729,7 +729,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         .w-input {
           width: 100%;
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 10px 12px;
           font-size: 13px;
           font-family: inherit;
@@ -760,7 +760,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: #ff4fa3;
           color: #14121f;
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 10px 20px;
           font-weight: 700;
           font-size: 13px;
@@ -781,7 +781,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-align: center;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 44px 32px;
           box-shadow: 7px 7px 0 #ffd23f;
           margin-top: 28px;
@@ -832,7 +832,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: #fff8ed;
           color: #14121f;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 13px 18px;
           font-weight: 700;
           font-size: 14px;
