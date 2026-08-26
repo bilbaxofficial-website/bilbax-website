@@ -174,7 +174,7 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
   return (
     <div className="page-shell">
       <header className="page-header">
-        <a href="/" className="page-logo">bilbax</a>
+        <a href="/" className="page-logo"><img src="/bilbax-logo.png" alt="bilbax" className="brand-logo-img" /></a>
         <a href={`/dashboard?account=${igAccountId}`} className="back-link">← Back to dashboard</a>
       </header>
 
@@ -780,10 +780,14 @@ export default function NewAutomationClient({ igAccountId, igUsername }) {
           background: #14121f;
         }
         .page-logo {
-          font-weight: 800;
-          font-size: 20px;
-          color: #fff8ed;
+          display: inline-flex;
+          align-items: center;
           text-decoration: none;
+        }
+        .page-logo img {
+          height: 24px;
+          width: auto;
+          display: block;
         }
         .back-link {
           color: #fff8ed;
