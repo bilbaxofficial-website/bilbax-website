@@ -332,7 +332,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
   return (
     <div className="page-shell">
       <header className="page-header">
-        <a href="/" className="page-logo">bilbax</a>
+        <a href="/" className="page-logo"><img src="/bilbax-logo.png" alt="bilbax" className="brand-logo-img" /></a>
         <a href={`/dashboard?account=${igAccountId}`} className="back-link">← Back to dashboard</a>
       </header>
 
@@ -524,22 +524,14 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           background: #14121f;
         }
         .page-logo {
-          font-family: var(--font-display), 'Syne', sans-serif;
-          font-weight: 800;
-          font-size: 24px;
-          color: #fff8ed;
+          display: inline-flex;
+          align-items: center;
           text-decoration: none;
-          letter-spacing: -0.06em;
         }
-        .page-logo::after {
-          content: '';
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          margin: 0 0 3px 3px;
-          background: #ff4fa3;
-          border: 2px solid #fff8ed;
-          border-radius: 50%;
+        .page-logo img {
+          height: 24px;
+          width: auto;
+          display: block;
         }
         .back-link {
           color: #fff8ed;
