@@ -42,7 +42,7 @@ export default function LeadsClient({ igAccountId, igUsername, leads, selectedRa
   return (
     <div className="leads-shell">
       <header className="page-header">
-        <a href="/" className="page-logo">bilbax</a>
+        <a href="/" className="page-logo"><img src="/bilbax-logo.png" alt="bilbax" className="brand-logo-img" /></a>
         <a
           href={backHref}
           className="back-link"
@@ -120,10 +120,14 @@ export default function LeadsClient({ igAccountId, igUsername, leads, selectedRa
           background: #14121f;
         }
         .page-logo {
-          font-weight: 800;
-          font-size: 20px;
-          color: #fff8ed;
+          display: inline-flex;
+          align-items: center;
           text-decoration: none;
+        }
+        .page-logo img {
+          height: 24px;
+          width: auto;
+          display: block;
         }
         .back-link {
           color: #fff8ed;
