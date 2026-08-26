@@ -514,10 +514,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
       <style jsx>{`
         .page-shell {
           min-height: 100vh;
-          background:
-            radial-gradient(circle at 15% 10%, rgba(255, 79, 163, 0.08), transparent 40%),
-            radial-gradient(circle at 85% 25%, rgba(124, 58, 237, 0.08), transparent 40%),
-            #fff8ed;
+          background: #fff8ed;
         }
         .page-header {
           display: flex;
@@ -527,16 +524,32 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           background: #14121f;
         }
         .page-logo {
+          font-family: var(--font-display), 'Syne', sans-serif;
           font-weight: 800;
-          font-size: 20px;
+          font-size: 24px;
           color: #fff8ed;
           text-decoration: none;
+          letter-spacing: -0.06em;
+        }
+        .page-logo::after {
+          content: '';
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          margin: 0 0 3px 3px;
+          background: #ff4fa3;
+          border: 2px solid #fff8ed;
+          border-radius: 50%;
         }
         .back-link {
           color: #fff8ed;
           font-size: 13px;
+          font-weight: 600;
           text-decoration: none;
           opacity: 0.85;
+        }
+        .back-link:hover {
+          opacity: 1;
         }
         .page-main {
           max-width: 720px;
@@ -547,10 +560,12 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           margin-bottom: 20px;
         }
         .page-title-row h1 {
-          font-size: 30px;
+          font-family: var(--font-display), 'Syne', sans-serif;
+          font-size: 34px;
           font-weight: 800;
           color: #14121f;
           margin: 0;
+          letter-spacing: -0.04em;
         }
         .page-subhead {
           font-size: 13px;
@@ -565,11 +580,11 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           margin-bottom: 16px;
         }
         .range-tab {
-          border: 3px solid #14121f;
-          border-radius: 999px;
+          border: 2px solid #14121f;
+          border-radius: 5px;
           padding: 9px 18px;
           background: #fff;
-          font-weight: 800;
+          font-weight: 700;
           font-size: 13px;
           color: #14121f;
           cursor: pointer;
@@ -592,7 +607,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           flex-wrap: wrap;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 16px;
+          border-radius: 5px;
           padding: 14px 16px;
           margin-bottom: 20px;
           box-shadow: 4px 4px 0 #ffd23f;
@@ -610,7 +625,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         }
         .custom-date-field input {
           border: 2px solid #14121f;
-          border-radius: 10px;
+          border-radius: 5px;
           padding: 8px 10px;
           font-family: inherit;
           font-weight: 700;
@@ -641,24 +656,21 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           }
         }
         .stat-card {
+          background: #fff;
           border: 3px solid #14121f;
-          border-radius: 18px;
+          border-radius: 5px;
           padding: 18px 16px 16px;
         }
         .stat-pink {
-          background: #ffe0ef;
           box-shadow: 5px 5px 0 #ff4fa3;
         }
         .stat-teal {
-          background: #d9f9f4;
           box-shadow: 5px 5px 0 #00d4b8;
         }
         .stat-yellow {
-          background: #fff3d0;
           box-shadow: 5px 5px 0 #ffd23f;
         }
         .stat-purple {
-          background: #ece3fd;
           box-shadow: 5px 5px 0 #7c3aed;
         }
         .stat-top {
@@ -706,26 +718,26 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           transform: scale(1.06);
         }
         .stat-view-eye {
-          font-size: 25px;
+          font-size: 22px;
           font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
           white-space: nowrap;
         }
         .stat-icon {
-          width: 34px;
-          height: 34px;
-          border-radius: 10px;
-          background: #fff;
+          width: 32px;
+          height: 32px;
+          border-radius: 5px;
+          background: #fff8ed;
           border: 2px solid #14121f;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 16px;
+          font-size: 15px;
         }
         .trend-pill {
           font-size: 11px;
           font-weight: 800;
           padding: 3px 8px;
-          border-radius: 999px;
+          border-radius: 5px;
           border: 2px solid #14121f;
         }
         .trend-up {
@@ -741,33 +753,37 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           background: #fff;
         }
         .stat-number {
+          font-family: var(--font-display), 'Syne', sans-serif;
           font-size: 30px;
           font-weight: 800;
           color: #14121f;
           line-height: 1;
+          letter-spacing: -0.03em;
         }
         .stat-label {
-          font-size: 12px;
-          font-weight: 800;
+          font-size: 11px;
+          font-weight: 700;
           color: #4a4658;
           margin-top: 8px;
           text-transform: uppercase;
-          letter-spacing: 0.02em;
+          letter-spacing: 0.04em;
         }
 
         .section-block {
           margin-bottom: 28px;
         }
         .section-title {
-          font-size: 18px;
+          font-family: var(--font-display), 'Syne', sans-serif;
+          font-size: 21px;
           font-weight: 800;
           color: #14121f;
           margin: 0 0 14px;
+          letter-spacing: -0.03em;
         }
         .panel {
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 22px;
+          border-radius: 5px;
           box-shadow: 6px 6px 0 #7c3aed;
           padding: 22px;
         }
@@ -777,7 +793,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .empty-note {
           background: #fff;
           border: 3px dashed #14121f;
-          border-radius: 16px;
+          border-radius: 5px;
           padding: 30px;
           text-align: center;
           color: #8a8496;
@@ -836,7 +852,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           background: #14121f;
           color: #fff8ed;
           padding: 9px 13px;
-          border-radius: 12px;
+          border-radius: 5px;
           font-size: 12px;
           pointer-events: none;
           white-space: nowrap;
@@ -866,7 +882,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .perf-card {
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 18px;
+          border-radius: 5px;
           padding: 16px 18px;
         }
         .perf-accent-pink {
