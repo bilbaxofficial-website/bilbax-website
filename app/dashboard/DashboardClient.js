@@ -90,7 +90,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
   return (
     <div className="dash-shell">
       <header className="dash-header">
-        <a href="/" className="dash-logo">bilbax</a>
+        <a href="/" className="dash-logo"><img src="/bilbax-logo.png" alt="bilbax" className="brand-logo-img" /></a>
         <div className="dash-user">
           <div className="dash-identity">
             <div className="dash-avatar">{initials}</div>
@@ -305,12 +305,15 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           flex-wrap: wrap;
         }
         .dash-logo {
-          font-weight: 800;
-          font-size: 20px;
-          color: #fff8ed;
+          display: inline-flex;
+          align-items: center;
           text-decoration: none;
-          letter-spacing: -0.5px;
           flex-shrink: 0;
+        }
+        .dash-logo img {
+          height: 24px;
+          width: auto;
+          display: block;
         }
         .dash-user {
           display: flex;
