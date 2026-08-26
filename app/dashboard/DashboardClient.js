@@ -289,36 +289,28 @@ export default function DashboardClient({ user, igAccounts = [] }) {
       <style jsx>{`
         .dash-shell {
           min-height: 100vh;
-          background: #fff8ed;
+          background:
+            radial-gradient(circle at 15% 10%, rgba(255, 79, 163, 0.08), transparent 40%),
+            radial-gradient(circle at 85% 25%, rgba(124, 58, 237, 0.08), transparent 40%),
+            #fff8ed;
         }
         .dash-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 18px 20px;
+          padding: 14px 20px;
           background: #14121f;
           border-bottom: 3px solid #14121f;
           flex-wrap: wrap;
         }
         .dash-logo {
-          font-family: var(--font-display), 'Syne', sans-serif;
           font-weight: 800;
-          font-size: 24px;
+          font-size: 20px;
           color: #fff8ed;
           text-decoration: none;
-          letter-spacing: -0.06em;
+          letter-spacing: -0.5px;
           flex-shrink: 0;
-        }
-        .dash-logo::after {
-          content: '';
-          display: inline-block;
-          width: 8px;
-          height: 8px;
-          margin: 0 0 3px 3px;
-          background: #ff4fa3;
-          border: 2px solid #fff8ed;
-          border-radius: 50%;
         }
         .dash-user {
           display: flex;
@@ -340,10 +332,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           width: 26px;
           height: 26px;
           flex-shrink: 0;
-          border-radius: 50%;
-          background: #ff4fa3;
-          border: 2px solid #fff8ed;
-          color: #14121f;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #ff4fa3, #7c3aed);
+          color: #fff;
           font-weight: 800;
           font-size: 12px;
           display: flex;
@@ -366,24 +357,24 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         }
         .logout-btn {
           background: #fff8ed;
-          border: 3px solid #14121f;
+          border: 2px solid #14121f;
           color: #14121f;
-          padding: 8px 18px;
-          border-radius: 5px;
-          font-weight: 700;
+          padding: 7px 16px;
+          border-radius: 999px;
+          font-weight: 800;
           cursor: pointer;
-          font-size: 13px;
-          box-shadow: 4px 4px 0 #ff4fa3;
-          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          font-size: 12px;
+          box-shadow: 2px 2px 0 #ff4fa3;
+          transition: transform 0.12s ease;
           flex-shrink: 0;
         }
         .logout-btn:hover {
-          transform: translate(-2px, -2px);
-          box-shadow: 6px 6px 0 #ff4fa3;
+          transform: translate(-1px, -1px);
+          box-shadow: 3px 3px 0 #ff4fa3;
         }
         .logout-btn:active {
-          transform: translate(2px, 2px);
-          box-shadow: 2px 2px 0 #ff4fa3;
+          transform: translate(0, 0);
+          box-shadow: 1px 1px 0 #ff4fa3;
         }
         .dash-main {
           max-width: 620px;
@@ -392,10 +383,10 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         }
         .error-banner {
           background: #fff0f0;
-          border: 3px solid #ff4fa3;
+          border: 2px solid #ff4fa3;
           color: #14121f;
           padding: 14px 18px;
-          border-radius: 0;
+          border-radius: 12px;
           font-size: 14px;
           margin-bottom: 24px;
           font-weight: 600;
@@ -405,9 +396,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-align: center;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 24px;
           padding: 48px 36px;
-          box-shadow: 7px 7px 0 #14121f;
+          box-shadow: 8px 8px 0 #7c3aed;
         }
         .hero-badge {
           display: inline-block;
@@ -423,13 +414,11 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           margin-bottom: 20px;
         }
         .hero-card h1 {
-          font-family: var(--font-display), 'Syne', sans-serif;
-          font-size: 30px;
+          font-size: 26.7px;
           font-weight: 800;
           color: #14121f;
           margin: 0 0 12px;
-          line-height: 1.05;
-          letter-spacing: -0.04em;
+          line-height: 1.2;
         }
         .hero-card p {
           color: #4a4658;
@@ -442,24 +431,24 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           align-items: center;
           justify-content: center;
           gap: 10px;
-          background: #ff4fa3;
-          color: #14121f;
+          background: linear-gradient(135deg, #ff4fa3, #7c3aed);
+          color: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 999px;
           padding: 16px 32px;
-          font-weight: 700;
+          font-weight: 800;
           font-size: 16px;
           cursor: pointer;
-          box-shadow: 5px 5px 0 #14121f;
+          box-shadow: 4px 4px 0 #14121f;
           transition: transform 0.15s ease, box-shadow 0.15s ease;
           text-decoration: none;
         }
         .connect-btn:hover {
-          transform: translate(-3px, -3px);
-          box-shadow: 8px 8px 0 #14121f;
+          transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0 #14121f;
         }
         .connect-btn:active {
-          transform: translate(2px, 2px);
+          transform: translate(0, 0);
           box-shadow: 2px 2px 0 #14121f;
         }
         .btn-arrow {
@@ -480,19 +469,13 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         }
         .account-tab {
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 999px;
           padding: 8px 16px;
           background: #fff;
           color: #14121f;
           font-weight: 700;
           font-size: 13px;
           cursor: pointer;
-          box-shadow: 3px 3px 0 #14121f;
-          transition: transform 0.12s ease, box-shadow 0.12s ease;
-        }
-        .account-tab:hover {
-          transform: translate(-1px, -1px);
-          box-shadow: 4px 4px 0 #14121f;
         }
         .account-tab.active {
           background: #14121f;
@@ -502,7 +485,6 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border-style: dashed;
           background: transparent;
           color: #7c3aed;
-          box-shadow: none;
         }
 
         .connected-banner {
@@ -511,7 +493,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           justify-content: space-between;
           background: #14121f;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 20px;
           padding: 22px 28px;
           box-shadow: 6px 6px 0 #00d4b8;
           gap: 12px;
@@ -525,9 +507,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         .pulse-dot {
           width: 12px;
           height: 12px;
-          border-radius: 50%;
+          border-radius: 999px;
           background: #00d4b8;
-          border: 2px solid #14121f;
+          box-shadow: 0 0 0 4px rgba(0, 212, 184, 0.25);
           flex-shrink: 0;
         }
         .connected-label {
@@ -538,11 +520,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-weight: 700;
         }
         .connected-username {
-          font-family: var(--font-display), 'Syne', sans-serif;
           color: #fff8ed;
-          font-size: 19px;
+          font-size: 18px;
           font-weight: 800;
-          letter-spacing: -0.03em;
         }
         .connected-actions {
           display: flex;
@@ -554,7 +534,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           border: 1.5px solid rgba(255, 248, 237, 0.35);
           color: #fff8ed;
           padding: 6px 12px;
-          border-radius: 5px;
+          border-radius: 999px;
           font-size: 11px;
           font-weight: 700;
           cursor: pointer;
@@ -566,11 +546,10 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           color: #ff4fa3;
         }
         .connected-check {
-          width: 30px;
-          height: 30px;
-          border-radius: 50%;
+          width: 32px;
+          height: 32px;
+          border-radius: 999px;
           background: #00d4b8;
-          border: 2px solid #14121f;
           color: #14121f;
           font-weight: 800;
           display: flex;
@@ -585,7 +564,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-align: center;
           background: transparent;
           border: 2px dashed #14121f;
-          border-radius: 5px;
+          border-radius: 14px;
           padding: 14px;
           margin-top: 14px;
           color: #7c3aed;
@@ -610,10 +589,10 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           gap: 12px;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 16px;
           padding: 16px 20px;
           margin-top: 14px;
-          box-shadow: 5px 5px 0 #ffd23f;
+          box-shadow: 4px 4px 0 #ffd23f;
         }
         .welcome-card-left {
           display: flex;
@@ -624,11 +603,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           font-size: 22px;
         }
         .welcome-title {
-          font-family: var(--font-display), 'Syne', sans-serif;
           font-weight: 800;
-          font-size: 15px;
+          font-size: 14px;
           color: #14121f;
-          letter-spacing: -0.02em;
         }
         .welcome-sub {
           font-size: 12px;
@@ -640,18 +617,14 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: #fff8ed;
           color: #14121f;
           padding: 8px 16px;
-          border-radius: 5px;
-          font-weight: 700;
+          border-radius: 999px;
+          font-weight: 800;
           font-size: 12px;
           cursor: pointer;
           flex-shrink: 0;
-          box-shadow: 3px 3px 0 #14121f;
-          transition: transform 0.12s ease, box-shadow 0.12s ease;
         }
         .welcome-edit-btn:hover {
           background: #ffd23f;
-          transform: translate(-1px, -1px);
-          box-shadow: 4px 4px 0 #14121f;
         }
 
         .welcome-modal-overlay {
@@ -667,19 +640,17 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         .welcome-modal {
           background: #fff8ed;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 20px;
           padding: 26px;
           max-width: 420px;
           width: 100%;
-          box-shadow: 7px 7px 0 #7c3aed;
+          box-shadow: 8px 8px 0 #7c3aed;
         }
         .welcome-modal h3 {
-          font-family: var(--font-display), 'Syne', sans-serif;
           margin: 0 0 6px;
-          font-size: 22px;
+          font-size: 20px;
           font-weight: 800;
           color: #14121f;
-          letter-spacing: -0.03em;
         }
         .welcome-modal-sub {
           font-size: 12px;
@@ -692,7 +663,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           align-items: center;
           justify-content: space-between;
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 10px 14px;
           margin-bottom: 16px;
           background: #fff;
@@ -737,7 +708,7 @@ export default function DashboardClient({ user, igAccounts = [] }) {
         .w-input {
           width: 100%;
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 8px;
           padding: 10px 12px;
           font-size: 13px;
           font-family: inherit;
@@ -765,20 +736,14 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           padding: 10px 8px;
         }
         .w-btn-save {
-          background: #ff4fa3;
-          color: #14121f;
+          background: linear-gradient(135deg, #ff4fa3, #7c3aed);
+          color: #fff;
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 999px;
           padding: 10px 20px;
-          font-weight: 700;
+          font-weight: 800;
           font-size: 13px;
           cursor: pointer;
-          box-shadow: 3px 3px 0 #14121f;
-          transition: transform 0.12s ease, box-shadow 0.12s ease;
-        }
-        .w-btn-save:hover {
-          transform: translate(-1px, -1px);
-          box-shadow: 4px 4px 0 #14121f;
         }
         .w-btn-save:disabled {
           opacity: 0.6;
@@ -789,16 +754,16 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-align: center;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 24px;
           padding: 44px 32px;
-          box-shadow: 7px 7px 0 #ffd23f;
+          box-shadow: 8px 8px 0 #ffd23f;
           margin-top: 28px;
         }
         .next-icon {
           width: 48px;
           height: 48px;
           margin: 0 auto 16px;
-          border-radius: 50%;
+          border-radius: 999px;
           background: #fff8ed;
           border: 3px solid #14121f;
           display: flex;
@@ -809,12 +774,10 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           color: #14121f;
         }
         .next-card h2 {
-          font-family: var(--font-display), 'Syne', sans-serif;
-          font-size: 24px;
+          font-size: 21px;
           font-weight: 800;
           color: #14121f;
           margin: 0 0 10px;
-          letter-spacing: -0.03em;
         }
         .next-card p {
           color: #4a4658;
@@ -840,9 +803,9 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           background: #fff8ed;
           color: #14121f;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 999px;
           padding: 13px 18px;
-          font-weight: 700;
+          font-weight: 800;
           font-size: 14px;
           cursor: pointer;
           box-shadow: 3px 3px 0 #14121f;
