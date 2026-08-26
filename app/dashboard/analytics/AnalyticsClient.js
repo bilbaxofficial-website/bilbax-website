@@ -581,7 +581,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         }
         .range-tab {
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 9px 18px;
           background: #fff;
           font-weight: 700;
@@ -607,7 +607,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           flex-wrap: wrap;
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 14px 16px;
           margin-bottom: 20px;
           box-shadow: 4px 4px 0 #ffd23f;
@@ -625,7 +625,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         }
         .custom-date-field input {
           border: 2px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 8px 10px;
           font-family: inherit;
           font-weight: 700;
@@ -658,7 +658,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .stat-card {
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 18px 16px 16px;
         }
         .stat-pink {
@@ -725,7 +725,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .stat-icon {
           width: 32px;
           height: 32px;
-          border-radius: 5px;
+          border-radius: 10px;
           background: #fff8ed;
           border: 2px solid #14121f;
           display: flex;
@@ -737,7 +737,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           font-size: 11px;
           font-weight: 800;
           padding: 3px 8px;
-          border-radius: 5px;
+          border-radius: 10px;
           border: 2px solid #14121f;
         }
         .trend-up {
@@ -783,7 +783,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .panel {
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           box-shadow: 6px 6px 0 #7c3aed;
           padding: 22px;
         }
@@ -793,7 +793,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .empty-note {
           background: #fff;
           border: 3px dashed #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 30px;
           text-align: center;
           color: #8a8496;
@@ -852,7 +852,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
           background: #14121f;
           color: #fff8ed;
           padding: 9px 13px;
-          border-radius: 5px;
+          border-radius: 10px;
           font-size: 12px;
           pointer-events: none;
           white-space: nowrap;
@@ -882,7 +882,7 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         .perf-card {
           background: #fff;
           border: 3px solid #14121f;
-          border-radius: 5px;
+          border-radius: 10px;
           padding: 16px 18px;
         }
         .perf-accent-pink {
