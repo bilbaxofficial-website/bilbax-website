@@ -10,7 +10,7 @@ export default function Home() {
 
   <header class="nav-wrap">
     <div class="container nav">
-      <a class="logo" href="#">bilbax</a>
+      <a class="logo" href="#"><img src="/bilbax-logo.png" alt="bilbax" class="brand-logo-img" /></a>
       <nav class="nav-links" data-mobile-nav aria-label="Main navigation">
         <a href="#how-it-works">How it works</a>
         <a href="#features">Features</a>
@@ -200,7 +200,7 @@ export default function Home() {
   <footer class="footer">
     <div class="container">
       <div class="footer-top">
-        <div><a class="logo" href="#">bilbax</a><p class="footer-blurb">The fast lane from Instagram comment to customer conversation.</p></div>
+        <div><a class="logo" href="#"><img src="/bilbax-logo.png" alt="bilbax" class="brand-logo-img" /></a><p class="footer-blurb">The fast lane from Instagram comment to customer conversation.</p></div>
         <div class="footer-links">
           <div><h4>Explore</h4><a href="#how-it-works">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a></div>
           <div><h4>Get started</h4><a href="#demo">See live demo</a><a href="#pricing">Start free</a><a href="#faq">FAQ</a></div>
