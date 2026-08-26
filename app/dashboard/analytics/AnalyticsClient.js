@@ -702,13 +702,14 @@ export default function AnalyticsClient({ igAccountId, igUsername, automations, 
         }
         .stat-corner-dot {
           position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 10px;
-          height: 10px;
+          top: -6px;
+          right: -6px;
+          width: 14px;
+          height: 14px;
           border-radius: 50%;
-          background: #ff4fa3;
-          border: 2px solid #14121f;
+          background: #ff2d55;
+          border: none;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
           pointer-events: none;
           animation: dot-pulse 2.2s ease-in-out infinite;
         }
