@@ -307,6 +307,11 @@ export default function DashboardClient({ user, igAccounts = [] }) {
           text-decoration: none;
           flex-shrink: 0;
         }
+        .dash-logo img {
+          height: 24px;
+          width: auto;
+          display: block;
+        }
         .dash-user {
           display: flex;
           align-items: center;
