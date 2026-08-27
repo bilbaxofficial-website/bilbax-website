@@ -50,7 +50,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .nav { display: flex; align-items: center; justify-content: space-between; }
 .logo { color: var(--ink); text-decoration: none; font: 800 28px var(--font-display); letter-spacing: -.08em; display: inline-flex; align-items: center; }
 .logo img.brand-logo-img,
-.brand-logo-img { height: 28px !important; width: auto !important; display: block; max-width: none; }
+.brand-logo-img { height: 40px !important; width: auto !important; display: block; max-width: none; }
 .footer .logo { color: var(--cream); }
 .nav-links { display: flex; align-items: center; gap: 30px; }
 .nav-links a, .nav-login { color: var(--ink); font-size: 14px; font-weight: 600; text-decoration: none; }
