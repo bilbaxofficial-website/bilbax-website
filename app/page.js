@@ -10,7 +10,7 @@ export default function Home() {
 
   <header class="nav-wrap">
     <div class="container nav">
-      <a class="logo" href="#"><img src="/bilbax-logo.png" alt="bilbax" class="brand-logo-img" /></a>
+      <a class="logo" href="#"><img src="/bilbax-front-logo.png" alt="bilbax" class="brand-logo-img" /></a>
       <nav class="nav-links" data-mobile-nav aria-label="Main navigation">
         <a href="#how-it-works">How it works</a>
         <a href="#features">Features</a>
