@@ -1,4 +1,4 @@
-import { Space_Grotesk, DM_Mono, Baloo_2 } from 'next/font/google';
+import { Space_Grotesk, DM_Mono, Syne } from 'next/font/google';
 import './globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -15,7 +15,7 @@ const dmMono = DM_Mono({
   display: 'swap',
 });
 
-const baloo2 = Baloo_2({
+const syne = Syne({
   subsets: ['latin'],
   weight: ['600', '700', '800'],
   variable: '--font-display',
@@ -29,7 +29,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${dmMono.variable} ${baloo2.variable}`}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${dmMono.variable} ${syne.variable}`}>
       <body>{children}</body>
     </html>
   );
