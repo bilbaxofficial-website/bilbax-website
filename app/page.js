@@ -200,13 +200,14 @@ export default function Home() {
   <footer class="footer">
     <div class="container">
       <div class="footer-top">
-        <div><a class="logo" href="#"><img src="/bilbax-logo.png" alt="bilbax" class="brand-logo-img" /></a><p class="footer-blurb">The fast lane from Instagram comment to customer conversation.</p></div>
+        <div class="footer-brand"><a class="logo" href="#top"><img src="/bilbax-logo.png" alt="bilbax" class="brand-logo-img" /></a><p class="footer-blurb">The fast lane from Instagram comment to customer conversation.</p></div>
         <div class="footer-links">
-          <div><h4>Explore</h4><a href="#how-it-works">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a></div>
-          <div><h4>Get started</h4><a href="#demo">See live demo</a><a href="#pricing">Start free</a><a href="#faq">FAQ</a></div>
+          <div><h4>Product</h4><a href="#how-it-works">How it works</a><a href="#features">Features</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a></div>
+          <div><h4>Company</h4><a href="/about">About</a><a href="/contact">Contact &amp; Support</a><a href="#demo">See live demo</a><a href="#pricing">Start free</a></div>
+          <div><h4>Legal</h4><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="/refund">Refund &amp; Cancellation</a><a href="/data-deletion">Data Deletion</a></div>
         </div>
       </div>
-      <div class="footer-bottom"><span>© 2026 bilbax. Built for the busy.</span><span>Instagram automation, minus the busywork.</span></div>
+      <div class="footer-bottom"><span>© 2026 bilbax. Built for the busy.</span><span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/contact">Support</a></span></div>
     </div>
   </footer>
 </div>
