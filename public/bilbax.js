@@ -70,15 +70,11 @@
   });
 
   var track = root.querySelector('[data-plan-track]');
-  var tabs = root.querySelectorAll('[data-tab-target]');
   var dots = root.querySelectorAll('[data-dot]');
   if (track) {
     var slides = track.querySelectorAll('.plan-slide');
 
     function setActive(index) {
-      tabs.forEach(function (tab, i) {
-        tab.classList.toggle('active', i === index);
-      });
       dots.forEach(function (dot, i) {
         dot.classList.toggle('active', i === index);
       });
@@ -90,13 +86,6 @@
       track.scrollTo({ left: slide.offsetLeft - track.offsetLeft, behavior: 'smooth' });
     }
 
-    tabs.forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        var index = Number(tab.getAttribute('data-tab-target'));
-        goToSlide(index);
-        setActive(index);
-      });
-    });
     dots.forEach(function (dot) {
       dot.addEventListener('click', function () {
         var index = Number(dot.getAttribute('data-dot'));
