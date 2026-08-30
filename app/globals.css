@@ -169,7 +169,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .demo-status { margin: 10px 0 0; color: #3e3747; font: 11px var(--font-mono); }
 
 .pricing-section { background: var(--yellow); border-bottom: var(--line); }
-.price-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: start; gap: 18px; }
+.price-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; align-items: start; gap: 18px; }
 .price-card { min-height: 405px; padding: 29px; border: var(--line); background: var(--cream); box-shadow: var(--shadow-hard); }
 .price-card.featured { background: var(--purple); color: var(--cream); transform: translateY(-24px) rotate(-1deg); }
 .price-card:last-child { background: var(--pink); transform: rotate(1deg); }
