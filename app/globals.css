@@ -200,8 +200,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .plan-slide-hot .yes { color: #8affb0; }
 .plan-slide-hot .no { color: #ffb199; }
 
-.li-multi { flex-wrap: wrap; }
-.auto-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.li-multi { flex-direction: column; align-items: flex-start; gap: 10px; }
+.auto-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; width: 100%; }
 .auto-badges em { font-style: normal; padding: 4px 9px; border: 1.5px solid var(--ink); font: 700 10.5px var(--font-mono); letter-spacing: .02em; background: var(--cream); color: var(--ink); }
 .auto-badges .on { background: #1a7a3c; border-color: #1a7a3c; color: var(--cream); }
 .auto-badges .off { background: transparent; color: #b3401f; border-color: #b3401f; opacity: .55; text-decoration: line-through; }
