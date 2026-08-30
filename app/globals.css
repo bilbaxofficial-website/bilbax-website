@@ -170,14 +170,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 
 .pricing-section { background: var(--yellow); border-bottom: var(--line); }
 
-.plan-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 30px 0 20px; }
-.plan-tab { padding: 10px 16px; border: var(--line); background: var(--cream); color: var(--ink); font: 700 13px var(--font-mono); letter-spacing: .03em; cursor: pointer; box-shadow: 3px 3px 0 var(--ink); }
-.plan-tab.active { background: var(--ink); color: var(--cream); }
-.plan-tab-hot { background: var(--purple); color: var(--cream); }
-.plan-tab-hot.active { background: var(--ink); }
-.plan-tab-hot span { color: var(--yellow); }
-
-.plan-deck { position: relative; }
+.plan-deck { position: relative; margin-top: 32px; }
 .plan-track { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 6px; }
 .plan-track::-webkit-scrollbar { display: none; }
 .plan-slide { flex: 0 0 100%; scroll-snap-align: start; border: var(--line); background: var(--cream); box-shadow: var(--shadow-hard); position: relative; overflow: hidden; }
@@ -207,12 +200,20 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .plan-slide-hot .yes { color: #8affb0; }
 .plan-slide-hot .no { color: #ffb199; }
 
+.li-multi { flex-wrap: wrap; }
+.auto-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.auto-badges em { font-style: normal; padding: 4px 9px; border: 1.5px solid var(--ink); font: 700 10.5px var(--font-mono); letter-spacing: .02em; background: var(--cream); color: var(--ink); }
+.auto-badges .on { background: #1a7a3c; border-color: #1a7a3c; color: var(--cream); }
+.auto-badges .off { background: transparent; color: #b3401f; border-color: #b3401f; opacity: .55; text-decoration: line-through; }
+.plan-slide-hot .auto-badges em { border-color: rgba(255,255,255,.5); }
+.plan-slide-hot .auto-badges .on { background: #1a7a3c; border-color: #1a7a3c; }
+.plan-slide-hot .auto-badges .off { color: #ffb199; border-color: #ffb199; }
+
 .plan-dots { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
 .plan-dot { width: 9px; height: 9px; border: 2px solid var(--ink); background: var(--cream); cursor: pointer; }
 .plan-dot.active { background: var(--ink); }
 
 @media (min-width: 900px) {
-  .plan-tabs { display: none; }
   .plan-dots { display: none; }
   .plan-track { overflow: visible; gap: 18px; }
   .plan-slide { flex: 1 1 0; scroll-snap-align: none; }
