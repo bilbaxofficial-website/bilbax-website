@@ -152,13 +152,6 @@ export default function Home() {
           <p class="section-copy">No surprise invoices. No “book a sales call” maze. Pick a plan and see every feature at a glance.</p>
         </div>
 
-        <div class="plan-tabs" data-plan-tabs role="tablist">
-          <button class="plan-tab active" type="button" data-tab-target="0">Free</button>
-          <button class="plan-tab" type="button" data-tab-target="1">Starter</button>
-          <button class="plan-tab plan-tab-hot" type="button" data-tab-target="2">Growth <span>★</span></button>
-          <button class="plan-tab" type="button" data-tab-target="3">Pro</button>
-        </div>
-
         <div class="plan-deck reveal" data-plan-deck>
           <div class="plan-track" data-plan-track>
 
@@ -168,7 +161,7 @@ export default function Home() {
                 <li><span>Connected Instagram accounts</span><b>1</b></li>
                 <li><span>DM sending limit</span><b>100 / month</b></li>
                 <li><span>Welcome DM</span><b class="no">✗</b></li>
-                <li><span>Automation type</span><b>Post &amp; Reel only</b></li>
+                <li class="li-multi"><span>Automation type</span><span class="auto-badges"><em class="on">Post/Reel</em><em class="off">Story</em><em class="off">Live</em></span></li>
                 <li><span>Follow-up DM</span><b class="no">✗</b></li>
                 <li><span>Analytics</span><b>Basic</b></li>
                 <li><span>Number of automations</span><b>2</b></li>
@@ -186,7 +179,7 @@ export default function Home() {
                 <li><span>Connected Instagram accounts</span><b>2</b></li>
                 <li><span>DM sending limit</span><b>3,000 / month</b></li>
                 <li><span>Welcome DM</span><b class="yes">✓</b></li>
-                <li><span>Automation type</span><b>All (incl. Story &amp; Live)</b></li>
+                <li class="li-multi"><span>Automation type</span><span class="auto-badges"><em class="on">Post/Reel</em><em class="on">Story</em><em class="on">Live</em></span></li>
                 <li><span>Follow-up DM</span><b class="yes">✓</b></li>
                 <li><span>Analytics</span><b>Basic</b></li>
                 <li><span>Number of automations</span><b>Unlimited</b></li>
@@ -205,7 +198,7 @@ export default function Home() {
                 <li><span>Connected Instagram accounts</span><b>3</b></li>
                 <li><span>DM sending limit</span><b>20,000 / month</b></li>
                 <li><span>Welcome DM</span><b class="yes">✓</b></li>
-                <li><span>Automation type</span><b>All (incl. Story &amp; Live)</b></li>
+                <li class="li-multi"><span>Automation type</span><span class="auto-badges"><em class="on">Post/Reel</em><em class="on">Story</em><em class="on">Live</em></span></li>
                 <li><span>Follow-up DM</span><b class="yes">✓</b></li>
                 <li><span>Analytics</span><b>Advanced</b></li>
                 <li><span>Number of automations</span><b>Unlimited</b></li>
@@ -223,7 +216,7 @@ export default function Home() {
                 <li><span>Connected Instagram accounts</span><b>5</b></li>
                 <li><span>DM sending limit</span><b>Unlimited</b></li>
                 <li><span>Welcome DM</span><b class="yes">✓</b></li>
-                <li><span>Automation type</span><b>All (incl. Story &amp; Live)</b></li>
+                <li class="li-multi"><span>Automation type</span><span class="auto-badges"><em class="on">Post/Reel</em><em class="on">Story</em><em class="on">Live</em></span></li>
                 <li><span>Follow-up DM</span><b class="yes">✓</b></li>
                 <li><span>Analytics</span><b>Advanced</b></li>
                 <li><span>Number of automations</span><b>Unlimited</b></li>
