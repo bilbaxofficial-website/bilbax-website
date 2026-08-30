@@ -152,10 +152,37 @@ export default function Home() {
           <p class="section-copy">No surprise invoices. No “book a sales call” maze. Pick a plan and get moving.</p>
         </div>
         <div class="price-grid">
-          <article class="price-card reveal"><h3>Free</h3><p>For getting your first automation live.</p><div class="price">₹0</div><ul class="price-list"><li>✓ 100 DMs / month</li><li>✓ 1 Instagram account</li><li>✓ Keyword comment-to-DM</li><li>✓ 2 active automations</li></ul><button class="btn" type="button" data-plan="Free">Start free <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
-          <article class="price-card reveal"><h3>Starter</h3><p>For your first real automation setup.</p><div class="price">₹149 <small>/ month</small></div><ul class="price-list"><li>✓ 3,000 DMs / month</li><li>✓ 2 Instagram accounts</li><li>✓ All automation types</li><li>✓ Follow-up messages</li><li>✓ Lead capture (email/phone)</li></ul><button class="btn" type="button" data-plan="Starter">Get started <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
-          <article class="price-card featured reveal"><span class="price-tag">Most popular</span><h3>Growth</h3><p>For creators with a busy inbox.</p><div class="price">₹349 <small>/ month</small></div><ul class="price-list"><li>✓ 20,000 DMs / month</li><li>✓ 3 Instagram accounts</li><li>✓ Unlimited automations</li><li>✓ 5 links per DM</li><li>✓ No message length limit</li></ul><button class="btn" type="button" data-plan="Growth">Start growing <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
-          <article class="price-card reveal"><h3>Pro</h3><p>For teams running multiple accounts.</p><div class="price">₹699 <small>/ month</small></div><ul class="price-list"><li>✓ Unlimited DMs</li><li>✓ 5 Instagram accounts</li><li>✓ Unlimited automations</li><li>✓ Everything in Growth</li></ul><button class="btn" type="button" data-plan="Pro">Talk to us <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
+          <article class="price-card reveal"><h3>Free</h3><p>For getting your first automation live.</p><div class="price">₹0</div><ul class="price-list"><li>✓ 100 DMs / month</li><li>✓ 1 Instagram account</li><li>✓ 2 active automations</li><li>✓ Keyword comment-to-DM</li><li>✓ Welcome message</li><li>✗ Story / Live automation</li><li>✗ Follow-before-DM gate</li></ul><button class="btn" type="button" data-plan="Free">Start free <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
+          <article class="price-card reveal"><h3>Starter</h3><p>For your first real automation setup.</p><div class="price">₹149 <small>/ month</small></div><ul class="price-list"><li>✓ 3,000 DMs / month</li><li>✓ 2 Instagram accounts</li><li>✓ Unlimited automations</li><li>✓ Comment + Story automation</li><li>✓ Follow-before-DM gate</li><li>✓ Email/phone capture</li><li>✓ Follow-up messages</li><li>✗ Live comment automation</li></ul><button class="btn" type="button" data-plan="Starter">Get started <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
+          <article class="price-card featured reveal"><span class="price-tag">Most popular</span><h3>Growth</h3><p>For creators with a busy inbox.</p><div class="price">₹349 <small>/ month</small></div><ul class="price-list"><li>✓ 20,000 DMs / month</li><li>✓ 3 Instagram accounts</li><li>✓ Unlimited automations</li><li>✓ Comment + Story + Live automation</li><li>✓ Follow-before-DM gate</li><li>✓ 5 links per DM</li><li>✓ No message length limit</li></ul><button class="btn" type="button" data-plan="Growth">Start growing <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
+          <article class="price-card reveal"><h3>Pro</h3><p>For teams running multiple accounts.</p><div class="price">₹699 <small>/ month</small></div><ul class="price-list"><li>✓ Unlimited DMs</li><li>✓ 5 Instagram accounts</li><li>✓ Unlimited automations</li><li>✓ Everything in Growth</li><li>✓ Built for multi-account teams</li></ul><button class="btn" type="button" data-plan="Pro">Talk to us <span>→</span></button><div class="price-feedback" data-plan-feedback></div></article>
+        </div>
+
+        <div class="compare-wrap reveal">
+          <h3 class="compare-title">Compare every feature</h3>
+          <div class="compare-scroll">
+          <table class="compare-table">
+            <thead>
+              <tr><th class="compare-feature-col">Feature</th><th>Free</th><th>Starter</th><th class="compare-highlight">Growth</th><th>Pro</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="compare-feature-col">Instagram accounts</td><td>1</td><td>2</td><td class="compare-highlight">3</td><td>5</td></tr>
+              <tr><td class="compare-feature-col">DMs / month</td><td>100</td><td>3,000</td><td class="compare-highlight">20,000</td><td>Unlimited</td></tr>
+              <tr><td class="compare-feature-col">Active automations</td><td>2</td><td>Unlimited</td><td class="compare-highlight">Unlimited</td><td>Unlimited</td></tr>
+              <tr><td class="compare-feature-col">Keyword comment-to-DM</td><td class="yes">✓</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Any-comment automation</td><td class="no">✗</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Story reply automation</td><td class="no">✗</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Live comment automation</td><td class="no">✗</td><td class="no">✗</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">New follower welcome message</td><td class="yes">✓</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Follow-before-DM gate</td><td class="no">✗</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Email / phone collection</td><td class="no">✗</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Public comment + private DM reply</td><td class="no">✗</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Automated follow-up messages</td><td class="no">✗</td><td class="yes">✓</td><td class="compare-highlight yes">✓</td><td class="yes">✓</td></tr>
+              <tr><td class="compare-feature-col">Links per DM</td><td>1</td><td>3</td><td class="compare-highlight">5</td><td>5</td></tr>
+              <tr><td class="compare-feature-col">Message length</td><td>500 characters</td><td>1,000 characters</td><td class="compare-highlight">No limit</td><td>No limit</td></tr>
+            </tbody>
+          </table>
+          </div>
         </div>
       </div>
     </section>
