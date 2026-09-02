@@ -1,15 +1,24 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase-client";
 
 export default function LoginPage() {
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   async function handleGoogleLogin() {
+    const selectedPlan = searchParams.get("plan");
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+
+    if (selectedPlan) {
+      callbackUrl.searchParams.set("plan", selectedPlan);
+    }
+
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl.toString(),
       },
     });
   }
