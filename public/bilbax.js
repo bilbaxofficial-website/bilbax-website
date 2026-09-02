@@ -63,55 +63,8 @@
 
   root.querySelectorAll('[data-plan]').forEach(function (button) {
     button.addEventListener('click', function () {
-      var card = button.closest('.plan-slide');
-      var feedback = card && card.querySelector('[data-plan-feedback]');
-      if (feedback) feedback.textContent = button.getAttribute('data-plan') + ' selected — your free setup starts here.';
+      var plan = (button.getAttribute('data-plan') || 'Free').toLowerCase();
+      window.location.href = '/login?plan=' + encodeURIComponent(plan);
     });
   });
-
-  var track = root.querySelector('[data-plan-track]');
-  var dots = root.querySelectorAll('[data-dot]');
-  if (track) {
-    var slides = track.querySelectorAll('.plan-slide');
-
-    function setActive(index) {
-      dots.forEach(function (dot, i) {
-        dot.classList.toggle('active', i === index);
-      });
-    }
-
-    function goToSlide(index) {
-      var slide = slides[index];
-      if (!slide) return;
-      track.scrollTo({ left: slide.offsetLeft - track.offsetLeft, behavior: 'smooth' });
-    }
-
-    dots.forEach(function (dot) {
-      dot.addEventListener('click', function () {
-        var index = Number(dot.getAttribute('data-dot'));
-        goToSlide(index);
-        setActive(index);
-      });
-    });
-
-    var scrollTimer;
-    track.addEventListener('scroll', function () {
-      clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(function () {
-        var trackLeft = track.scrollLeft;
-        var closest = 0;
-        var closestDist = Infinity;
-        slides.forEach(function (slide, i) {
-          var dist = Math.abs((slide.offsetLeft - track.offsetLeft) - trackLeft);
-          if (dist < closestDist) { closestDist = dist; closest = i; }
-        });
-        setActive(closest);
-      }, 100);
-    });
-
-    // Growth (index 2) is the featured plan — land there first on mobile.
-    if (window.matchMedia('(max-width: 899px)').matches) {
-      setTimeout(function () { goToSlide(2); setActive(2); }, 50);
-    }
-  }
 })();
