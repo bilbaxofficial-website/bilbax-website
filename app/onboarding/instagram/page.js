@@ -1,10 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useSearchParams } from "next/navigation";
 
 const VALID_PLANS = new Set(["free", "starter", "growth", "pro"]);
 
-export default function InstagramOnboardingPage() {
+function InstagramOnboardingPageContent() {
   const searchParams = useSearchParams();
   const plan = (searchParams.get("plan") || "free").toLowerCase();
   const selectedPlan = VALID_PLANS.has(plan) ? plan : "free";
@@ -126,5 +128,14 @@ export default function InstagramOnboardingPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+
+export default function InstagramOnboardingPage() {
+  return (
+    <Suspense fallback={null}>
+      <InstagramOnboardingPageContent />
+    </Suspense>
   );
 }
