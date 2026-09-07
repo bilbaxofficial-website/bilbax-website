@@ -1,9 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase-client";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
@@ -104,5 +106,14 @@ export default function LoginPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
